@@ -1,56 +1,30 @@
-[![GitHub Release](https://img.shields.io/github/release/Vaskivskyi/ha-asusrouter.svg?style=for-the-badge&color=blue)](https://github.com/Vaskivskyi/ha-asusrouter/releases) [![License](https://img.shields.io/github/license/Vaskivskyi/ha-asusrouter.svg?style=for-the-badge&color=yellow)](https://github.com/Vaskivskyi/ha-asusrouter/blob/main/LICENSE) [![Community forum discussion](https://img.shields.io/badge/COMMUNITY-FORUM-success?style=for-the-badge&color=blue)](https://community.home-assistant.io/t/custom-component-asusrouter-integration/416111) [![Installations](https://img.shields.io/endpoint?url=https://vaskivskyi.github.io/ha-custom-analytics/badges/asusrouter/total.json&style=for-the-badge&color=yellow)](https://github.com/Vaskivskyi/ha-custom-analytics)<a href="https://www.buymeacoffee.com/vaskivskyi" target="_blank"><img src="https://asusrouter.vaskivskyi.com/BuyMeACoffee.png" alt="Buy Me A Coffee" style="height: 28px !important;" align="right" /></a>
+# AsusRouter Fixed IP
 
-## Monitor and control your AsusWRT-powered router from Home Assistant
+An independently maintained Home Assistant integration for ASUSWRT routers,
+with fixed-IP management and verified client internet-access controls.
 
-The integration uses the native HTTP(S) API (the same way as WebUI) and relies on direct communication with your device. Both the stock AsusWRT as well as AsusWRT-Merlin are supported.
+## Included Controls
 
-## Full documentation
+- Read current static DHCP reservations.
+- Reserve a tracked device's current IP.
+- Create, update, and remove reservations.
+- Refresh reservation state after router-side changes.
+- Block, allow, or remove client internet-access rules.
 
-You can find the full documentation on the [official webpage](https://asusrouter.vaskivskyi.com/).
+Fixed-IP writes use the router's authenticated HTTP(S) WebUI API and are read
+back after apply. SSH and Merlin-only commands are not required.
 
-## :loudspeaker: Do you want to add AsusRouter to the default HA Core integrations?
+## Install
 
-:+1: Vote for the feature request!
+Add **https://github.com/jgassens/ha-asusrouter** to HACS as a custom
+**Integration**, download the latest release, and restart Home Assistant.
 
-[Add AsusRouter integration to HA Core - Feature Requests - Home Assistant Community (home-assistant.io)](https://community.home-assistant.io/t/add-asusrouter-integration-to-ha-core/515756?u=vaskivskyi)
+Do not install this integration alongside another integration using the
+**asusrouter** domain.
 
-## Features
+See the [README](https://github.com/jgassens/ha-asusrouter#readme) for actions,
+compatibility, and safety guidance. Report problems in the
+[issue tracker](https://github.com/jgassens/ha-asusrouter/issues).
 
-AsusRouter supports 14+ groups of features, including monitoring of:
-- connected device, CPU, guest WLAN, LED, load average, network, OpenVPN, parental control, ports, RAM, temperature, WAN, WLAN.
-
-and control of:
-- gues WLAN, LED, OpenVPN, parental control, WLAN.
-
- as well as the following HA platforms:
-- `binary_sensor`, `button`, `device_tracker`, `light`, `sensor`, `switch`, `update`
-
-and HA events and services.
-
-[Full list of features](https://asusrouter.vaskivskyi.com/features/)
-
-## Supported devices
-
-AsusRouter supports virtually every AsusWRT-powered device. [The full list of tested devices](https://asusrouter.vaskivskyi.com/devices/).
-
-## Installation
-
-1. Click Install
-2. Restart Home Assistant
-3. In the Home Assistant UI:
-   `Configuration -> Devices & Services -> Integrations -> Add integration -> AsusRouter`
-
-## Configuration
-
-You would need to provide the minimum information:
-- Hostname or IP address of the device
-- Username
-- Password
-
-Please, refer to the [Setup documentation](https://asusrouter.vaskivskyi.com/guide/getting-started/) if you would like to get detailed information on the configuration flow.
-
----
-
-<a href="https://www.buymeacoffee.com/vaskivskyi" target="_blank"><img src="https://asusrouter.vaskivskyi.com/BuyMeACoffee.png" alt="Buy Me A Coffee" style="height: 60px !important;"></a>
-
-
+This independently maintained project preserves the Apache-2.0 license,
+NOTICE, original authorship, and Git history of its source project.

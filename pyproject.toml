@@ -1,23 +1,26 @@
 [project]
 name            = "ha-asusrouter"
-version         = "1.0.0+jgassens.2"
+version         = "1.1.0"
 license         = "Apache-2.0"
 requires-python = ">=3.14.2"
 readme          = "README.md"
-description     = "A custom Home Assistant integration from the AsusRouter project"
+description     = "Independent Home Assistant integration for ASUSWRT fixed-IP and client controls"
 authors         = [
     { name="Yevhenii Vaskivskyi", email="yevhenii@vaskivskyi.com" },
 ]
+maintainers     = [
+    { name="Jeremiah Gassensmith" },
+]
 classifiers     = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.13",
     "Topic :: Software Development :: Libraries",
 ]
 dependencies    = [
-    # The integration still uses the legacy API removed from current AsusRouter dev.
-    "asusrouter@git+https://github.com/jgassens/asusrouter.git@0d471818f60c588b78625bed50b45c7162be5e3a",
+    # Pin the companion library's stable API to the exact tested commit.
+    "asusrouter@git+https://github.com/jgassens/asusrouter.git@0bb735f8de705adccfca188a47f376de167f1829",
     "homeassistant==2026.7.4",
 ]
 

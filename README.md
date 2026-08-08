@@ -1,28 +1,26 @@
-# AsusRouter Static DHCP Fork
+# AsusRouter Fixed IP
 
-This is a focused Home Assistant fork of
-[Vaskivskyi/ha-asusrouter](https://github.com/Vaskivskyi/ha-asusrouter).
-It exists to add reliable fixed-IP management for ASUS routers while keeping
-the upstream integration's monitoring and control features.
+AsusRouter Fixed IP is an independently maintained Home Assistant integration
+for ASUSWRT routers. It keeps the broad monitoring and control surface of
+AsusRouter while adding first-class fixed-IP management and safer client
+internet-access actions.
 
-Current fork release: **v1.0.0+jgassens.2**.
+Current release: **v1.1.0**.
 
-## Problem
+## What It Solves
 
-The upstream integration can discover and monitor router clients, but it does
-not expose ASUS manual DHCP reservations in Home Assistant. Assigning a fixed
-IP therefore requires opening the router WebUI and editing each client there.
+ASUS routers support manual DHCP reservations, but those reservations are not
+normally manageable from Home Assistant. Assigning or changing a fixed IP
+therefore requires opening the router WebUI.
 
-## Solution
+This integration exposes the router's native HTTP(S) WebUI operations in Home
+Assistant. Router SSH access is not required.
 
-This fork adds static DHCP controls backed by the router's native HTTP(S)
-WebUI API. It reads and writes the same **dhcp_staticlist** configuration used
-by stock ASUS firmware, enables **dhcp_static_x**, and applies changes with
-**restart_dnsmasq**. Router SSH access is not required.
+## Fixed-IP Controls
 
-The integration adds:
+The integration provides:
 
-- A **Static DHCP reservations** sensor with the current reservation count and
+- A **Static DHCP reservations** sensor containing the reservation count and
   lease list.
 - A **Reserve current IP** button on eligible tracked client devices.
 - **asusrouter.set_static_dhcp_lease** to create or replace a reservation.
@@ -32,73 +30,88 @@ The integration adds:
 - **asusrouter.refresh_static_dhcp_leases** to refresh Home Assistant's cached
   reservation state.
 
-Writes are guarded against duplicate IP assignments and are read back from the
-router after apply. Reserving the current IP will not silently move an existing
-reservation to a different address.
+The implementation reads and writes ASUSWRT's **dhcp_staticlist** setting,
+enables **dhcp_static_x**, and applies changes through the router's native
+service action. Writes reject duplicate IP assignments and are read back from
+the router after apply.
 
-## Internet Access Action
+## Internet-Access Controls
 
-The existing **asusrouter.device_internet_access** action is retained and
-hardened in this release. In the Home Assistant action editor, select one or
-more AsusRouter device trackers and choose:
+The **asusrouter.device_internet_access** action accepts AsusRouter device
+trackers in the Home Assistant action editor:
 
-- **block** to enable a parental-control block.
-- **allow** to disable the block while retaining the rule.
-- **remove** to delete the parental-control rule.
+- **block** enables a parental-control block.
+- **allow** disables the block while retaining its rule.
+- **remove** deletes the parental-control rule.
 
-The action now validates its targets, routes each target through its owning
-router entry, and confirms the requested state after refreshing the router.
-Already-achieved states are accepted, and removed rules no longer leave stale
-switch entities in Home Assistant. Direct API callers may
-also provide **devices** containing **mac** and optional **name**; when more
-than one router entry is loaded, they must also provide **config_entry_id**.
+The action validates targets, routes each target through its owning router,
+refreshes the router after the write, and confirms the requested state.
+Already-achieved states are accepted. Removing a rule also removes its dynamic
+switch entity instead of leaving an unavailable entity in Home Assistant.
 
-## HACS Installation
+Direct API callers may provide **devices** containing **mac** and optional
+**name**. A **config_entry_id** is required when more than one router-mode
+AsusRouter entry is loaded.
 
-This fork and the upstream repository use the same Home Assistant integration
-domain, so install only one of them.
+## Install With HACS
+
+AsusRouter Fixed IP and the original AsusRouter integration use the same Home
+Assistant domain. Only one can be installed at a time.
 
 1. Back up Home Assistant.
-2. Remove the official AsusRouter repository from HACS. Do not delete the
-   AsusRouter integration configuration or entities.
-3. In HACS, open **Custom repositories**.
-4. Add **https://github.com/jgassens/ha-asusrouter** as an **Integration**.
-5. Download **v1.0.0+jgassens.2** and restart Home Assistant.
+2. In HACS, uninstall the original AsusRouter package without deleting the
+   integration's configuration or entities.
+3. Add **https://github.com/jgassens/ha-asusrouter** under **Custom
+   repositories** as an **Integration**.
+4. Download the latest release and restart Home Assistant.
 
 Existing AsusRouter config entries and entity IDs remain in place because the
-domain is still **asusrouter**.
+integration domain remains **asusrouter**.
 
 ## Compatibility
 
-- Home Assistant **2026.7.4** or newer for this release.
-- Stock AsusWRT **3.0.0.4.x** and **3.0.0.6.x**: expected and primary target.
-  Static DHCP was validated through the stock-compatible HTTP(S) WebUI path;
-  it does not depend on Merlin-only SSH commands.
-- AsusWRT-Merlin: expected to work where the upstream integration works,
-  because it exposes the same WebUI fields and apply action.
-- Asus firmware **5.x.x**: not supported, matching the upstream integration.
+- Home Assistant **2026.7.4** or newer.
+- Stock ASUSWRT **3.0.0.4.x** and **3.0.0.6.x** are the primary target. Fixed-IP
+  support uses the stock-compatible HTTP(S) WebUI path and does not require
+  Merlin-only commands.
+- AsusWRT-Merlin is expected to work where it exposes the same WebUI fields and
+  apply actions.
+- ASUS firmware **5.x.x** is not currently supported.
 
-Router models and firmware vary. Make a router configuration backup before the
+Router models and firmware vary. Back up the router configuration before the
 first write and verify the resulting reservation in the ASUS WebUI.
 
-## Upstream And Maintenance
+## Maintenance
 
-The fork is periodically rebased onto the current upstream **dev** branch. The
-static DHCP implementation depends on the companion
-[jgassens/asusrouter](https://github.com/jgassens/asusrouter) library fork,
-pinned to a tested commit in **manifest.json**.
+This repository has its own **main** branch, issue tracker, release history,
+and compatibility decisions. Source-project updates may be reviewed and
+ported, but they are not merged or rebased automatically.
 
-General AsusRouter behavior and device support come from the upstream project.
-Fork-specific DHCP or release issues belong in
-[jgassens/ha-asusrouter issues](https://github.com/jgassens/ha-asusrouter/issues).
+The integration installs the companion
+[jgassens/asusrouter](https://github.com/jgassens/asusrouter) library from an
+exact tested commit. This avoids silently changing the router API underneath a
+Home Assistant release.
+
+Report integration, fixed-IP, or release problems in
+[this repository's issue tracker](https://github.com/jgassens/ha-asusrouter/issues).
 
 ## Development
 
-Run the test suite and lint checks before publishing:
+Run the checks before publishing:
 
-    uv run pytest
-    uv run ruff check custom_components/asusrouter tests
-    uv run ruff format --check custom_components/asusrouter tests
+```sh
+uv sync --all-groups
+uv run pytest
+uv run ruff check custom_components/asusrouter tests
+uv run ruff format --check custom_components/asusrouter tests
+```
 
-This project remains licensed under Apache-2.0. Upstream authorship and history
-are preserved in Git.
+## Attribution
+
+This project is derived from
+[Vaskivskyi/ha-asusrouter](https://github.com/Vaskivskyi/ha-asusrouter) and is
+maintained independently. It is not affiliated with ASUS or endorsed by the
+source project's maintainers.
+
+The Apache-2.0 license, NOTICE file, original authorship, and Git history are
+preserved.

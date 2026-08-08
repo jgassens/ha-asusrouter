@@ -3,7 +3,7 @@ description: Do you want a new feature for AsusRouter integration?
 title: "[Feature] "
 labels: ["enhancement"]
 assignees:
-  - vaskivskyi
+  - jgassens
 body:
   - type: markdown
     attributes:
@@ -11,7 +11,7 @@ body:
         Please, only submit feature requests using this form. If you would like to report a bug, use the [bug report][forms] form.
         To add a new device to the compatibility list, use the [device support][forms] form.
 
-        [forms]: https://github.com/Vaskivskyi/ha-asusrouter/issues/new/choose
+        [forms]: https://github.com/jgassens/ha-asusrouter/issues/new/choose
   - type: textarea
     id: feature_details
     validations:

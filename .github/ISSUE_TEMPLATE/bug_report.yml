@@ -3,7 +3,7 @@ description: Report an issue with AsusRouter Integration
 title: "[Bug] "
 labels: ["bug"]
 assignees:
-  - vaskivskyi
+  - jgassens
 body:
   - type: markdown
     attributes:
@@ -11,7 +11,7 @@ body:
         Please, only report bugs using this form. If you would like to submit a feature request, use the [feature request][forms] form.
         To add a new device to the compatibility list, use the [device support][forms] form.
 
-        [forms]: https://github.com/Vaskivskyi/ha-asusrouter/issues/new/choose
+        [forms]: https://github.com/jgassens/ha-asusrouter/issues/new/choose
   - type: input
     id: device_model
     validations:

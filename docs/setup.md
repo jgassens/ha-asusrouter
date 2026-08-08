@@ -1,6 +1,7 @@
 # Integration setup
 
-***The information is correct for [the versions](https://github.com/Vaskivskyi/ha-asusrouter/releases) 0.3.0+***
+This guide applies to the current
+[AsusRouter Fixed IP releases](https://github.com/jgassens/ha-asusrouter/releases).
 
 The setup process is split into `configuration flow` steps for simplicity. This also allows for better error reporting and easier troubleshooting.
 
@@ -65,7 +66,7 @@ This step allows performing a simplified setup. By providing these values, the i
 ## #4. Time constants
 
 **Values:**
-- `cache time` - the amount of time for the [asusrouter](https://github.com/Vaskivskyi/asusrouter) library behind the integration to store obtained data (e.g. some data is obtained in bulk and then split for different sensors in Home Assistant). Thanks to caching, it is possible to decrease the amount of traffic to the device and minimize its response time. The default (and recommended value) is `5` seconds. This time constant should be always lower than the `scan interval` value.
+- `cache time` - the amount of time for the [asusrouter](https://github.com/jgassens/asusrouter) library behind the integration to store obtained data (e.g. some data is obtained in bulk and then split for different sensors in Home Assistant). Thanks to caching, it is possible to decrease the amount of traffic to the device and minimize its response time. The default (and recommended value) is `5` seconds. This time constant should be always lower than the `scan interval` value.
 - `scan interval` - how regularly sensors should be pulled. The default value is `30` seconds. Even though the user may want to decrease it as low as possible, please, note, that older Asus devices (especially single-core ones) cannot handle high traffic well and may become unresponsive. We do not recommend setting this value below `10` seconds.
 - `consider home` - how fast the integration should consider connected devices `not home` after they were last seen. E.g., the default value `45` seconds means that the connected device will not be set as `not home` earlier than 45 seconds. If the user wants to receive a `not home` value as soon as the device goes offline, this value should be lower than the `scan interval`.
 
@@ -105,5 +106,4 @@ The options flow allows the user to select what exactly settings should be chang
 To apply the new configuration, the user should reload the integration (or the whole Home Assistant, but that is a bit too much). The step is only set to make sure of that.
 
 ![Options. Confirm](Fig-Setup/Step-Options-Confirm.png)
-
 

@@ -1,6 +1,6 @@
 {
   "domain": "asusrouter",
-  "name": "AsusRouter Static DHCP Fork",
+  "name": "AsusRouter Fixed IP",
   "codeowners": ["@jgassens"],
   "config_flow": true,
   "documentation": "https://github.com/jgassens/ha-asusrouter#readme",
@@ -9,7 +9,7 @@
   "issue_tracker": "https://github.com/jgassens/ha-asusrouter/issues",
   "loggers": ["asusrouter"],
   "requirements": [
-    "asusrouter@git+https://github.com/jgassens/asusrouter.git@0d471818f60c588b78625bed50b45c7162be5e3a"
+    "asusrouter@git+https://github.com/jgassens/asusrouter.git@0bb735f8de705adccfca188a47f376de167f1829"
   ],
-  "version": "1.0.0+jgassens.2"
+  "version": "1.1.0"
 }

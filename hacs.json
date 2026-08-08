@@ -1,5 +1,5 @@
 {
-  "name": "AsusRouter Static DHCP Fork",
+  "name": "AsusRouter Fixed IP",
   "content_in_root": false,
   "homeassistant": "2026.7.4"
 }

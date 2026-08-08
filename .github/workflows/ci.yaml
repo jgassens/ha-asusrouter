@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - dev
     paths:
       - "**/*.py"
       - ".github/workflows/**"
@@ -131,30 +130,3 @@ jobs:
         with:
           name: unit-tests-cov-${{ env.DEFAULT_PYTHON_VERSION }}
           path: unit-tests-cov-${{ env.DEFAULT_PYTHON_VERSION }}.xml
-
-  codecov:
-    name: Codecov
-    needs: [unit-tests]
-    if: github.repository == 'Vaskivskyi/ha-asusrouter'
-    runs-on: ubuntu-latest
-
-    permissions:
-      contents: read
-      checks: write
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-
-      - name: Download unit-tests coverage from artifacts
-        uses: actions/download-artifact@v8
-        with:
-          name: unit-tests-cov-${{ env.DEFAULT_PYTHON_VERSION }}
-          path: .
-
-      - name: Upload coverage to Codecov
-        uses: codecov/codecov-action@v7
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          fail_ci_if_error: true
-          files: unit-tests-cov-${{ env.DEFAULT_PYTHON_VERSION }}.xml
