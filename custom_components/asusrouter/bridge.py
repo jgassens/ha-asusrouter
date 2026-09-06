@@ -21,7 +21,13 @@ from asusrouter.modules.homeassistant import (
     convert_to_ha_state_bool,
 )
 from asusrouter.modules.identity import AsusDevice
-from asusrouter.modules.parental_control import ParentalControlRule, PCRuleType
+from asusrouter.modules.parental_control import (
+    ParentalControlRule,
+    PCRuleType,
+    add_rule,
+    remove_rule,
+    write_pc_rules,
+)
 from asusrouter.tools.connection import get_cookie_jar
 from homeassistant.const import (
     CONF_HOST,
@@ -569,12 +575,15 @@ class ARBridge:
 
         return await self._get_data(AsusData.OPENVPN_SERVER)
 
-    async def _get_data_parental_control(self) -> dict[str, Any]:
+    async def _get_data_parental_control(
+        self, force: bool = False
+    ) -> dict[str, Any]:
         """Get parental control data from the device."""
 
         return await self._get_data(
             AsusData.PARENTAL_CONTROL,
             self._process_data_parental_control,
+            force=force,
         )
 
     async def _get_data_port_forwarding(self) -> dict[str, Any]:
@@ -862,16 +871,45 @@ class ARBridge:
             _LOGGER.warning("No valid parental control targets were provided")
             return False
 
-        success = True
-        for rule in rules_to_set:
-            result = await self.api.async_set_state(rule)
-            if result is True:
-                _LOGGER.debug("Parental control rule set: %s", rule)
-            else:
-                _LOGGER.warning("Cannot set parental control rule: %s", rule)
-                success = False
+        # The library writes parental control rules as a whole table built
+        # from its cached router state, and that cache defaults to empty.
+        # Fetch the current rules fresh from the router so a cold or
+        # expired cache can never wipe rules we were not asked to change.
+        pc_data = await self.api.async_get_data(
+            AsusData.PARENTAL_CONTROL, force=True
+        )
+        current_rules = (
+            pc_data.get("rules") if isinstance(pc_data, dict) else None
+        )
+        if not isinstance(current_rules, dict):
+            raise AsusRouterError(
+                "Unable to read the current parental control rules "
+                "from the router"
+            )
 
-        return success
+        # Apply every requested change against the same known-current
+        # rule set and write the whole table in a single request.
+        new_rules = dict(current_rules)
+        for rule in rules_to_set:
+            if rule_type is PCRuleType.REMOVE:
+                new_rules = remove_rule(new_rules, rule)
+            else:
+                new_rules = add_rule(new_rules, rule)
+
+        result = await self.api.async_run_service(
+            service="restart_firewall",
+            arguments=write_pc_rules(new_rules),
+            apply=True,
+        )
+
+        if result is True:
+            _LOGGER.debug("Parental control rules set: %s", rules_to_set)
+        else:
+            _LOGGER.warning(
+                "Cannot set parental control rules: %s", rules_to_set
+            )
+
+        return bool(result)
 
     # --------------------
     # <-- Services

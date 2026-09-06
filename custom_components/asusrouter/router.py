@@ -337,6 +337,7 @@ class ARDevice:
             CONF_DEFAULT_CREATE_DEVICES,
         )
         self._pc_rules: dict[str, Any] = {}
+        self._pc_switch_reload_lock = asyncio.Lock()
         self._static_dhcp_lock = asyncio.Lock()
         self._static_dhcp_leases: list[dict[str, str]] = []
 
@@ -743,7 +744,7 @@ class ARDevice:
         if new_node:
             async_dispatcher_send(self.hass, self.signal_aimesh_new)
 
-    async def update_pc_rules(self) -> bool:
+    async def update_pc_rules(self, force: bool = False) -> bool:
         """Update parental control rules."""
 
         _LOGGER.debug(
@@ -751,7 +752,9 @@ class ARDevice:
         )
         try:
             pc_data = (
-                await self.bridge._get_data_parental_control()  # pylint: disable=protected-access
+                await self.bridge._get_data_parental_control(  # pylint: disable=protected-access
+                    force=force
+                )
             )
         except UpdateFailed as ex:
             if not self._connect_error:

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from ipaddress import IPv4Address
 import re
 from typing import Any, cast
@@ -30,6 +31,11 @@ ATTR_ENTITIES = "entities"
 ATTR_HOSTNAME = "hostname"
 ATTR_NAME = "name"
 ATTR_STATE = "state"
+
+# The router needs a moment to apply `restart_firewall` before a fresh
+# read-back can confirm the new parental-control state.
+PC_RULE_CONFIRM_ATTEMPTS = 3
+PC_RULE_CONFIRM_DELAY = 1.0
 
 SERVICE_DEVICE_INTERNET_ACCESS = "device_internet_access"
 SERVICE_REFRESH_STATIC_DHCP_LEASES = "refresh_static_dhcp_leases"
@@ -244,22 +250,32 @@ def _internet_access_entity_data(
 
     capabilities = entry.capabilities or {}
     state = hass.states.get(entity_id)
-    mac = capabilities.get(MAC)
-    if mac is None and state is not None:
-        mac = state.attributes.get(MAC)
+    try:
+        mac = capabilities.get(MAC)
+        if mac is None and state is not None:
+            mac = state.attributes.get(MAC)
+    except (AttributeError, TypeError) as ex:
+        raise ServiceValidationError(
+            f"Device tracker data is malformed: {entity_id}"
+        ) from ex
     if mac is None:
         raise ServiceValidationError(
             f"Device tracker has no MAC address: {entity_id}"
         )
 
     mac = router._static_dhcp_mac(mac)
-    name = _get_client_field(router, mac, ATTR_NAME)
-    if name is None:
-        name = capabilities.get(ATTR_NAME)
-    if name is None and state is not None:
-        name = state.attributes.get("host_name") or state.attributes.get(
-            "friendly_name"
-        )
+    try:
+        name = _get_client_field(router, mac, ATTR_NAME)
+        if name is None:
+            name = capabilities.get(ATTR_NAME)
+        if name is None and state is not None:
+            name = state.attributes.get("host_name") or state.attributes.get(
+                "friendly_name"
+            )
+    except (AttributeError, TypeError) as ex:
+        raise ServiceValidationError(
+            f"Device tracker data is malformed: {entity_id}"
+        ) from ex
 
     return router, {MAC: mac, ATTR_NAME: _optional_string(name)}
 
@@ -295,12 +311,20 @@ def _internet_access_state_matches(
 ) -> bool:
     """Return whether the refreshed rules match the requested state."""
 
-    rules_by_mac = {
-        router._static_dhcp_mac(rule.mac): rule
-        for rule in router.pc_rules.values()
-        if rule.mac is not None
-    }
-    target_macs = {router._static_dhcp_mac(device[MAC]) for device in devices}
+    try:
+        rules_by_mac = {
+            router._static_dhcp_mac(rule.mac): rule
+            for rule in router.pc_rules.values()
+            if rule.mac is not None
+        }
+        target_macs = {
+            router._static_dhcp_mac(device[MAC]) for device in devices
+        }
+    except (AttributeError, TypeError, KeyError) as ex:
+        raise HomeAssistantError(
+            "The router returned unexpected parental-control data: "
+            f"{ex}"
+        ) from ex
 
     if state == "remove":
         return target_macs.isdisjoint(rules_by_mac)
@@ -322,35 +346,41 @@ async def _reload_parental_control_switches(
 ) -> None:
     """Remove stale rule entities and reload parental-control switches."""
 
-    unload = await router.hass.config_entries.async_unload_platforms(
-        router._config_entry, [Platform.SWITCH]
-    )
-    if not unload:
-        raise HomeAssistantError(
-            "Unable to reload AsusRouter parental-control switches"
+    # Serialize the unload/reload the same way the static DHCP path is
+    # serialized, so concurrent calls cannot interleave them.
+    async with router._pc_switch_reload_lock:  # pylint: disable=protected-access
+        unload = await router.hass.config_entries.async_unload_platforms(
+            router._config_entry, [Platform.SWITCH]
         )
+        if not unload:
+            raise HomeAssistantError(
+                "Unable to reload AsusRouter parental-control switches"
+            )
 
-    removed_unique_ids = {
-        to_unique_id(
-            f"{router.mac}_{router._static_dhcp_mac(device[MAC])}"
-            "_block_internet"
-        )
-        for device in removed_devices
-    }
-    registry = er.async_get(router.hass)
-    for entry in er.async_entries_for_config_entry(
-        registry, router._config_entry.entry_id
-    ):
-        if (
-            entry.domain == Platform.SWITCH
-            and entry.platform == DOMAIN
-            and entry.unique_id in removed_unique_ids
-        ):
-            registry.async_remove(entry.entity_id)
-
-    await router.hass.config_entries.async_forward_entry_setups(
-        router._config_entry, [Platform.SWITCH]
-    )
+        try:
+            removed_unique_ids = {
+                to_unique_id(
+                    f"{router.mac}_{router._static_dhcp_mac(device[MAC])}"
+                    "_block_internet"
+                )
+                for device in removed_devices
+            }
+            registry = er.async_get(router.hass)
+            for entry in er.async_entries_for_config_entry(
+                registry, router._config_entry.entry_id
+            ):
+                if (
+                    entry.domain == Platform.SWITCH
+                    and entry.platform == DOMAIN
+                    and entry.unique_id in removed_unique_ids
+                ):
+                    registry.async_remove(entry.entity_id)
+        finally:
+            # Always restore the switch platform, even when the registry
+            # cleanup fails, so no switch entities are left unloaded.
+            await router.hass.config_entries.async_forward_entry_setups(
+                router._config_entry, [Platform.SWITCH]
+            )
 
 
 def _get_client_field(
@@ -423,6 +453,33 @@ def _client_entity_data(
     return router, mac, ip, hostname
 
 
+async def _async_confirm_internet_access(
+    router: ARDevice,
+    state: str,
+    devices: list[dict[str, Any]],
+) -> None:
+    """Confirm the router applied the requested internet-access state.
+
+    The confirmation reads fresh data, bypassing the library cache. The
+    router needs a moment to apply `restart_firewall`, so give it a
+    bounded chance to settle instead of trusting a single, possibly
+    stale, read-back.
+    """
+
+    for attempt in range(PC_RULE_CONFIRM_ATTEMPTS):
+        refreshed = await router.update_pc_rules(force=True)
+        if refreshed and _internet_access_state_matches(
+            router, state, devices
+        ):
+            return
+        if attempt < PC_RULE_CONFIRM_ATTEMPTS - 1:
+            await asyncio.sleep(PC_RULE_CONFIRM_DELAY)
+
+    raise HomeAssistantError(
+        "The router's internet-access state could not be confirmed"
+    )
+
+
 async def _async_device_internet_access(
     hass: HomeAssistant,
     call: ServiceCall,
@@ -457,13 +514,9 @@ async def _async_device_internet_access(
                 f"Unable to change device internet access: {ex}"
             ) from ex
 
-        refreshed = await router.update_pc_rules()
-        if not refreshed or not _internet_access_state_matches(
+        await _async_confirm_internet_access(
             router, call.data[ATTR_STATE], devices
-        ):
-            raise HomeAssistantError(
-                "The router's internet-access state could not be confirmed"
-            )
+        )
 
         if call.data[ATTR_STATE] == "remove":
             await _reload_parental_control_switches(router, devices)
