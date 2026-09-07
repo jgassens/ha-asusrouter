@@ -9,7 +9,7 @@
   "issue_tracker": "https://github.com/jgassens/ha-asusrouter/issues",
   "loggers": ["asusrouter"],
   "requirements": [
-    "asusrouter@git+https://github.com/jgassens/asusrouter.git@0bb735f8de705adccfca188a47f376de167f1829"
+    "asusrouter@git+https://github.com/jgassens/asusrouter.git@9a1acc874f0cc17c3fdea48524fa89e807b58efc"
   ],
   "version": "1.1.0"
 }
