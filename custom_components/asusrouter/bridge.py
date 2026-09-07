@@ -734,7 +734,10 @@ class ARBridge:
         try:
             data = await self.api.async_get_data(datatype)
             _LOGGER.debug(
-                "Raw `%s` sensors of type (%s): %s", datatype, type(data), data
+                "Sensor discovery: datatype=%s response_type=%s key_count=%d",
+                datatype.name,
+                type(data).__name__,
+                len(data) if isinstance(data, dict) else 0,
             )
             sensors = (
                 process(data)
@@ -760,7 +763,10 @@ class ARBridge:
         try:
             data = await self.api.async_get_data(datatype)
             _LOGGER.debug(
-                "Raw `%s` sensors of type (%s): %s", datatype, type(data), data
+                "Sensor discovery: datatype=%s response_type=%s key_count=%d",
+                datatype.name,
+                type(data).__name__,
+                len(data) if isinstance(data, dict) else 0,
             )
             sensors = convert_to_ha_sensors(data, datatype)
             _LOGGER.debug(
@@ -945,10 +951,18 @@ class ARBridge:
         )
 
         if result.success is True:
-            _LOGGER.debug("Parental control rules set: %s", rules_to_set)
+            _LOGGER.debug(
+                "Parental control rule update: outcome=success "
+                "rule_type=%s target_count=%d",
+                rule_type.name,
+                len(rules_to_set),
+            )
         else:
             _LOGGER.warning(
-                "Cannot set parental control rules: %s", rules_to_set
+                "Parental control rule update: outcome=rejected "
+                "rule_type=%s target_count=%d",
+                rule_type.name,
+                len(rules_to_set),
             )
 
         return result
