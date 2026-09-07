@@ -213,7 +213,7 @@ class ClientInternetSwitch(SwitchEntity):
         """Set state."""
 
         try:
-            _LOGGER.debug("Changing PC rule to %s", state)
+            _LOGGER.debug("Changing PC rule: rule_type=%s", state.type.name)
             await self._router.async_set_internet_access(
                 state="block" if state.type == PCRuleType.BLOCK else "allow",
                 devices=[{"mac": state.mac, "name": state.name}],

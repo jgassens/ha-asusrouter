@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 from unittest.mock import AsyncMock, Mock, call, patch
 
 from asusrouter.error import AsusRouterError
@@ -1078,3 +1079,33 @@ async def test_refresh_keeps_known_rules_when_poll_omits_table() -> None:
     assert not await router.update_pc_rules(force=True)
     assert router._pc_rules == {existing.mac: existing}
     assert router._connect_error is False
+
+
+@pytest.mark.asyncio
+async def test_switch_toggle_log_omits_mac_and_name(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """A switch toggle must not write the device MAC or name to the log."""
+
+    original = ParentalControlRule(
+        mac="AA:BB:CC:DD:EE:FF",
+        name="Sentinel Laptop",
+        type=PCRuleType.DISABLE,
+    )
+    bridge = _bridge(rules={original.mac: original})
+    router = _router(bridge)
+    switch = ClientInternetSwitch(router, original)
+
+    async def write(**kwargs: dict) -> ServiceResult:
+        bridge.api.async_get_data.return_value = {
+            "rules": _read_written_rules(kwargs["arguments"])
+        }
+        return _result(True, 0)
+
+    bridge.api.async_run_service_result.side_effect = write
+    with caplog.at_level(logging.DEBUG):
+        await switch.async_turn_on()
+
+    assert "AA:BB:CC:DD:EE:FF" not in caplog.text
+    assert "Sentinel Laptop" not in caplog.text
+    assert "rule_type=BLOCK" in caplog.text
