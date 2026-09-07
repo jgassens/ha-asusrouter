@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import dataclasses
-import inspect
 import logging
 from typing import Any, cast
 
@@ -23,7 +22,6 @@ from asusrouter.modules.homeassistant import (
 )
 from asusrouter.modules.identity import AsusDevice
 from asusrouter.modules.parental_control import (
-    ParentalControlCapabilities,
     ParentalControlCapacityError,
     ParentalControlRule,
     PCRuleType,
@@ -907,13 +905,8 @@ class ARBridge:
             capabilities = None
             update_rule = remove_rule
         else:
-            capabilities_request = (
-                self.api.async_get_parental_control_capabilities()
-            )
             capabilities = (
-                await capabilities_request
-                if inspect.isawaitable(capabilities_request)
-                else ParentalControlCapabilities()
+                await self.api.async_get_parental_control_capabilities()
             )
             update_rule = add_rule
 

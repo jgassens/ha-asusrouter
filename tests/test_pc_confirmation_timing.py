@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import AsyncMock, Mock, call, patch
 
 from asusrouter.modules.data import AsusData
+from asusrouter.modules.parental_control import ParentalControlCapabilities
 from asusrouter.modules.service import ServiceResult
 from homeassistant.exceptions import HomeAssistantError
 import pytest
@@ -244,6 +245,9 @@ async def test_each_rule_operation_calls_service_result_once(
     bridge = ARBridge.__new__(ARBridge)
     bridge._api = Mock()
     bridge.api.async_get_data = AsyncMock(return_value={"rules": {}})
+    bridge.api.async_get_parental_control_capabilities = AsyncMock(
+        return_value=ParentalControlCapabilities()
+    )
     expected = _result(True, 5)
     bridge.api.async_run_service_result = AsyncMock(return_value=expected)
     bridge.api.async_run_service = AsyncMock()
