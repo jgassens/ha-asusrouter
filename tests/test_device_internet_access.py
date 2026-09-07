@@ -1016,3 +1016,28 @@ async def test_refresh_does_not_remove_rules_from_library_cache() -> None:
     assert snapshot == {existing.mac: existing}
     assert snapshot[existing.mac] is existing
     bridge.api.async_run_service.assert_not_awaited()
+
+
+def test_parental_control_sensor_data_tolerates_missing_rules() -> None:
+    """The sensor coordinator must tolerate a poll without a rule table."""
+
+    data = ARBridge._process_data_parental_control({})
+
+    assert data["list"] == []
+
+
+@pytest.mark.asyncio
+async def test_refresh_keeps_known_rules_when_poll_omits_table() -> None:
+    """A poll without a readable rule table is not a connection error."""
+
+    existing = ParentalControlRule(
+        mac="AA:BB:CC:DD:EE:FF", type=PCRuleType.BLOCK
+    )
+    bridge = _bridge()
+    bridge.api.async_get_data.return_value = {}
+    router = _router(bridge)
+    router._pc_rules = {existing.mac: existing}
+
+    assert not await router.update_pc_rules(force=True)
+    assert router._pc_rules == {existing.mac: existing}
+    assert router._connect_error is False

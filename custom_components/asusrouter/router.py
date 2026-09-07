@@ -844,8 +844,18 @@ class ARDevice:
 
         new_flag = False
 
-        # The library returns its live cached dict; never pop from that table.
-        rules = dict(self.bridge._validate_pc_rules(pc_data))
+        # A poll that carries no readable rule table (the library omits
+        # `rules` for an incomplete response) is not a connection failure:
+        # keep the rules already known and report that nothing was updated.
+        try:
+            rules = dict(self.bridge._validate_pc_rules(pc_data))
+        except AsusRouterError as ex:
+            _LOGGER.debug(
+                "No readable parental control rules from '%s': %s",
+                self._conf_host,
+                ex,
+            )
+            return False
 
         rules_to_save = {}
 

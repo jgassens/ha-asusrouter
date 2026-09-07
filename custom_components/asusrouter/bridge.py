@@ -658,7 +658,6 @@ class ARBridge:
     def _process_data_parental_control(raw: dict[str, Any]) -> dict[str, Any]:
         """Process `parental control` data."""
 
-        ARBridge._validate_pc_rules(raw)
         rules_list = []
         rules = raw.get("rules")
         if rules is not None:
