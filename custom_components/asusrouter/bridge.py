@@ -28,6 +28,7 @@ from asusrouter.modules.parental_control import (
     remove_rule,
     write_pc_rules,
 )
+from asusrouter.modules.service import ServiceResult
 from asusrouter.tools.connection import get_cookie_jar
 from homeassistant.const import (
     CONF_HOST,
@@ -866,7 +867,7 @@ class ARBridge:
         *,
         state: str,
         devices: list[dict[str, Any]],
-    ) -> bool:
+    ) -> ServiceResult:
         """Write one table for ARDevice.async_set_internet_access.
 
         The caller must hold the router's rule lock through confirmation.
@@ -881,7 +882,9 @@ class ARBridge:
                 rule_type = PCRuleType.REMOVE
             case _:
                 _LOGGER.warning("Unknown parental control state: %s", state)
-                return False
+                return ServiceResult(
+                    success=False, needed_time=None, last_id=None
+                )
 
         rules_to_set = [
             rule
@@ -890,11 +893,10 @@ class ARBridge:
         ]
         if not rules_to_set:
             _LOGGER.warning("No valid parental control targets were provided")
-            return False
+            return ServiceResult(success=False, needed_time=None, last_id=None)
 
-        # Request a fresh snapshot for this whole-table write. The library
-        # can silently return its cache on connection/data errors; force=True
-        # cannot guarantee freshness until that library defect is fixed.
+        # Request a fresh snapshot for this whole-table write. A forced read
+        # raises instead of returning cached data when the live request fails.
         pc_data = await self.api.async_get_data(
             AsusData.PARENTAL_CONTROL, force=True
         )
@@ -917,20 +919,20 @@ class ARBridge:
             else:
                 new_rules = add_rule(new_rules, rule)
 
-        result = await self.api.async_run_service(
+        result = await self.api.async_run_service_result(
             service="restart_firewall",
             arguments=write_pc_rules(new_rules),
             apply=True,
         )
 
-        if result is True:
+        if result.success is True:
             _LOGGER.debug("Parental control rules set: %s", rules_to_set)
         else:
             _LOGGER.warning(
                 "Cannot set parental control rules: %s", rules_to_set
             )
 
-        return bool(result)
+        return result
 
     # --------------------
     # <-- Services

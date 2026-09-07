@@ -16,6 +16,7 @@ from asusrouter.modules.parental_control import (
     PCRuleType,
     read_pc_rules,
 )
+from asusrouter.modules.service import ServiceResult
 from homeassistant.const import Platform
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 import pytest
@@ -34,6 +35,17 @@ from custom_components.asusrouter.services import (
 from custom_components.asusrouter.switch import ClientInternetSwitch
 
 
+def _result(
+    success: bool,
+    needed_time: int | None = None,
+) -> ServiceResult:
+    """Build service metadata returned by the pinned library API."""
+
+    return ServiceResult(
+        success=success, needed_time=needed_time, last_id=None
+    )
+
+
 def _bridge(
     *results: bool,
     rules: dict[str, ParentalControlRule] | None = None,
@@ -45,7 +57,9 @@ def _bridge(
     bridge.api.async_get_data = AsyncMock(
         return_value={"rules": rules if rules is not None else {}}
     )
-    bridge.api.async_run_service = AsyncMock(side_effect=results or (True,))
+    bridge.api.async_run_service_result = AsyncMock(
+        side_effect=[_result(success) for success in (results or (True,))]
+    )
     bridge.api.async_set_state = AsyncMock(return_value=True)
     return bridge
 
@@ -53,7 +67,7 @@ def _bridge(
 def _written_macs(bridge: ARBridge) -> str:
     """Return the MAC list from the single written rule table."""
 
-    call = bridge.api.async_run_service.await_args
+    call = bridge.api.async_run_service_result.await_args
     assert call.kwargs["service"] == "restart_firewall"
     assert call.kwargs["apply"] is True
     return call.kwargs["arguments"][KEY_PC_MAC]
@@ -75,12 +89,15 @@ async def test_pc_rule_maps_state_and_normalizes_mac(
 
     bridge = _bridge(True)
 
-    assert await bridge.async_pc_rule(
+    result = await bridge.async_pc_rule(
         state=state,
         devices=[{"mac": "aa:bb:cc:dd:ee:ff", "name": "Console"}],
     )
+    assert result.success is True
 
-    arguments = bridge.api.async_run_service.await_args.kwargs["arguments"]
+    arguments = bridge.api.async_run_service_result.await_args.kwargs[
+        "arguments"
+    ]
     assert arguments[KEY_PC_MAC] == "AA:BB:CC:DD:EE:FF"
     assert arguments[KEY_PC_NAME] == "Console"
     assert arguments[KEY_PC_TYPE] == str(rule_type.value)
@@ -99,10 +116,11 @@ async def test_pc_rule_remove_drops_only_the_named_rule() -> None:
     )
     bridge = _bridge(True, rules={keep.mac: keep, drop.mac: drop})
 
-    assert await bridge.async_pc_rule(
+    result = await bridge.async_pc_rule(
         state="remove",
         devices=[{"mac": "aa:bb:cc:dd:ee:ff"}],
     )
+    assert result.success is True
 
     assert _written_macs(bridge) == keep.mac
 
@@ -113,9 +131,12 @@ async def test_pc_rule_rejects_empty_targets() -> None:
 
     bridge = _bridge()
 
-    assert not await bridge.async_pc_rule(state="block", devices=[])
+    result = await bridge.async_pc_rule(state="block", devices=[])
+    assert result.success is False
+    assert result.needed_time is None
+    assert result.last_id is None
     bridge.api.async_get_data.assert_not_awaited()
-    bridge.api.async_run_service.assert_not_awaited()
+    bridge.api.async_run_service_result.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -124,10 +145,11 @@ async def test_pc_rule_reports_router_write_failure() -> None:
 
     bridge = _bridge(False)
 
-    assert not await bridge.async_pc_rule(
+    result = await bridge.async_pc_rule(
         state="block",
         devices=[{"mac": "00:11:22:33:44:55"}],
     )
+    assert result.success is False
 
 
 @pytest.mark.asyncio
@@ -139,10 +161,11 @@ async def test_pc_rule_preserves_existing_rules_on_cold_cache() -> None:
     )
     bridge = _bridge(True, rules={existing.mac: existing})
 
-    assert await bridge.async_pc_rule(
+    result = await bridge.async_pc_rule(
         state="block",
         devices=[{"mac": "AA:BB:CC:DD:EE:FF", "name": "Console"}],
     )
+    assert result.success is True
 
     bridge.api.async_get_data.assert_awaited_once()
     assert (
@@ -160,15 +183,16 @@ async def test_pc_rule_applies_all_devices_in_single_write() -> None:
 
     bridge = _bridge(True)
 
-    assert await bridge.async_pc_rule(
+    result = await bridge.async_pc_rule(
         state="block",
         devices=[
             {"mac": "00:11:22:33:44:55"},
             {"mac": "AA:BB:CC:DD:EE:FF"},
         ],
     )
+    assert result.success is True
 
-    bridge.api.async_run_service.assert_awaited_once()
+    bridge.api.async_run_service_result.assert_awaited_once()
     written = _written_macs(bridge)
     assert "00:11:22:33:44:55" in written
     assert "AA:BB:CC:DD:EE:FF" in written
@@ -187,7 +211,7 @@ async def test_pc_rule_refuses_write_when_rules_unreadable() -> None:
             devices=[{"mac": "AA:BB:CC:DD:EE:FF"}],
         )
 
-    bridge.api.async_run_service.assert_not_awaited()
+    bridge.api.async_run_service_result.assert_not_awaited()
 
 
 def test_service_schema_requires_target() -> None:
@@ -235,7 +259,9 @@ def _router(bridge: ARBridge | None = None) -> Mock:
 
     router._internet_access_state_matches.side_effect = state_matches
 
-    async def apply_rule(*, state: str, devices: list[dict[str, str]]) -> bool:
+    async def apply_rule(
+        *, state: str, devices: list[dict[str, str]]
+    ) -> ServiceResult:
         for device in devices:
             mac = str(device["mac"]).lower()
             if state == "remove":
@@ -249,7 +275,7 @@ def _router(bridge: ARBridge | None = None) -> Mock:
                     "block": PCRuleType.BLOCK,
                 }[state],
             )
-        return True
+        return _result(True, 0)
 
     router.bridge.async_pc_rule = AsyncMock(side_effect=apply_rule)
     router.update_pc_rules = AsyncMock(return_value=True)
@@ -374,7 +400,7 @@ async def test_confirmed_idempotent_remove_reloads_switches() -> None:
 
     router = _router()
     router.bridge.async_pc_rule.side_effect = None
-    router.bridge.async_pc_rule.return_value = False
+    router.bridge.async_pc_rule.return_value = _result(False)
     hass, handlers = _service_hass(router)
     await async_setup_services(hass)
     handler = handlers[SERVICE_DEVICE_INTERNET_ACCESS]
@@ -458,7 +484,7 @@ async def test_service_surfaces_unconfirmed_router_write() -> None:
 
     router = _router()
     router.bridge.async_pc_rule.side_effect = None
-    router.bridge.async_pc_rule.return_value = False
+    router.bridge.async_pc_rule.return_value = _result(False)
     hass, handlers = _service_hass(router)
     await async_setup_services(hass)
     handler = handlers[SERVICE_DEVICE_INTERNET_ACCESS]
@@ -527,7 +553,9 @@ async def test_stale_read_back_is_confirmed_after_retry() -> None:
     router = _router()
     pending: dict[str, ParentalControlRule] = {}
 
-    async def apply_rule(*, state: str, devices: list[dict[str, str]]) -> bool:
+    async def apply_rule(
+        *, state: str, devices: list[dict[str, str]]
+    ) -> ServiceResult:
         for device in devices:
             mac = str(device["mac"]).lower()
             pending[mac] = ParentalControlRule(
@@ -535,7 +563,7 @@ async def test_stale_read_back_is_confirmed_after_retry() -> None:
                 name=device.get("name", ""),
                 type=PCRuleType.BLOCK,
             )
-        return True
+        return _result(True, 0)
 
     refreshes = 0
     applies_after = 2
@@ -701,7 +729,9 @@ async def test_concurrent_services_serialize_read_write_and_confirmation() -> (
             await release_confirm.wait()
         return {"rules": table}
 
-    async def write(*, service: str, arguments: dict, apply: bool) -> bool:
+    async def write(
+        *, service: str, arguments: dict, apply: bool
+    ) -> ServiceResult:
         assert service == "restart_firewall"
         assert apply is True
         if not writes:
@@ -710,10 +740,10 @@ async def test_concurrent_services_serialize_read_write_and_confirmation() -> (
         table.clear()
         table.update(_read_written_rules(arguments))
         writes.append(set(table))
-        return True
+        return _result(True, 0)
 
     bridge.api.async_get_data.side_effect = read
-    bridge.api.async_run_service.side_effect = write
+    bridge.api.async_run_service_result.side_effect = write
     router = _router(bridge)
     router._pc_rule_lock = ObservedLock()
     hass, handlers = _service_hass(router)
@@ -777,14 +807,14 @@ async def test_switch_uses_router_writer_and_retains_other_rules(
     router = _router(bridge)
     switch = ClientInternetSwitch(router, original)
 
-    async def write(**kwargs: dict) -> bool:
+    async def write(**kwargs: dict) -> ServiceResult:
         assert switch._rule is original
         bridge.api.async_get_data.return_value = {
             "rules": _read_written_rules(kwargs["arguments"])
         }
-        return True
+        return _result(True, 0)
 
-    bridge.api.async_run_service.side_effect = write
+    bridge.api.async_run_service_result.side_effect = write
     if state == "block":
         await switch.async_turn_on()
     else:
@@ -794,7 +824,7 @@ async def test_switch_uses_router_writer_and_retains_other_rules(
         state=state, devices=[{"mac": original.mac, "name": original.name}]
     )
     assert _written_macs(bridge).split(">") == [keep.mac, original.mac]
-    bridge.api.async_run_service.assert_awaited_once()
+    bridge.api.async_run_service_result.assert_awaited_once()
     router.update_pc_rules.assert_awaited_once_with(force=True)
     bridge.api.async_get_data.assert_has_awaits(
         [call(AsusData.PARENTAL_CONTROL, force=True)] * 2
@@ -848,7 +878,7 @@ async def test_switch_false_write_requires_matching_confirmation(
             )
             assert sleep.await_args_list == [call(1.0), call(1.0)]
 
-    bridge.api.async_run_service.assert_awaited_once()
+    bridge.api.async_run_service_result.assert_awaited_once()
     router.async_set_internet_access.assert_awaited_once()
 
 
@@ -887,7 +917,7 @@ async def test_pc_rule_rejects_malformed_snapshot_before_write(
         await bridge.async_pc_rule(
             state="block", devices=[{"mac": "AA:BB:CC:DD:EE:FF"}]
         )
-    bridge.api.async_run_service.assert_not_awaited()
+    bridge.api.async_run_service_result.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -908,11 +938,14 @@ async def test_retained_empty_fields_are_lossless_without_snapshot_mutation(
     )
     snapshot = {keep.mac: keep, target.mac: target}
     bridge = _bridge(rules=snapshot)
-    assert await bridge.async_pc_rule(
+    result = await bridge.async_pc_rule(
         state=state, devices=[{"mac": target.mac, "name": None}]
     )
+    assert result.success is True
 
-    arguments = bridge.api.async_run_service.await_args.kwargs["arguments"]
+    arguments = bridge.api.async_run_service_result.await_args.kwargs[
+        "arguments"
+    ]
     assert arguments[KEY_PC_NAME].split(">")[0] == ""
     assert arguments[KEY_PC_TIMEMAP].split(">")[0] == ""
     assert arguments[KEY_PC_TYPE].split(">")[0] == str(PCRuleType.TIME.value)
@@ -996,7 +1029,7 @@ async def test_confirmation_rejects_missing_rules_even_for_remove() -> None:
             state="remove", devices=[{"mac": "AA:BB:CC:DD:EE:FF"}]
         )
 
-    bridge.api.async_run_service.assert_awaited_once()
+    bridge.api.async_run_service_result.assert_awaited_once()
     assert router.update_pc_rules.await_args_list == [call(force=True)] * 3
 
 
@@ -1015,7 +1048,7 @@ async def test_refresh_does_not_remove_rules_from_library_cache() -> None:
     assert await router.update_pc_rules(force=True)
     assert snapshot == {existing.mac: existing}
     assert snapshot[existing.mac] is existing
-    bridge.api.async_run_service.assert_not_awaited()
+    bridge.api.async_run_service_result.assert_not_awaited()
 
 
 def test_parental_control_sensor_data_tolerates_missing_rules() -> None:

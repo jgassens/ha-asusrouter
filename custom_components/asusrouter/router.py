@@ -101,11 +101,14 @@ from .helpers import as_dict
 
 _LOGGER = logging.getLogger(__name__)
 
-# Allow restart_firewall to settle with three forced reads, one second apart.
-# Each read can itself take the library's 15s connection timeout, so the
-# confirmation window is roughly 3 x 15s + 2s in the worst case.
+# A successful restart_firewall waits for its reported delay, capped at 10s;
+# missing or invalid delays use 1s, while zero skips the initial wait. Then
+# confirmation uses three forced reads, 1s apart. Each read can take the
+# library's 15s connection timeout, so the worst case is roughly 57s:
+# 10s + (3 x 15s) + 2s.
 PC_RULE_CONFIRM_ATTEMPTS = 3
 PC_RULE_CONFIRM_DELAY = 1.0
+PC_RULE_CONFIRM_MAX_INITIAL_DELAY = 10.0
 
 
 class ARSensorHandler:
@@ -763,15 +766,31 @@ class ARDevice:
             result = await self.bridge.async_pc_rule(
                 state=state, devices=devices
             )
-            if not result:
+            if result.success is True:
+                needed_time = result.needed_time
+                if (
+                    isinstance(needed_time, int)
+                    and not isinstance(needed_time, bool)
+                    and needed_time >= 0
+                ):
+                    initial_delay = min(
+                        needed_time, PC_RULE_CONFIRM_MAX_INITIAL_DELAY
+                    )
+                else:
+                    initial_delay = PC_RULE_CONFIRM_DELAY
+
+                if initial_delay > 0:
+                    await asyncio.sleep(initial_delay)
+            else:
                 _LOGGER.debug(
-                    "Parental-control write rejected; checking whether "
-                    "the requested state already holds"
+                    "Parental-control service did not report a successful "
+                    "write; checking whether the requested state already "
+                    "holds"
                 )
 
-            # Request fresh read-back even if the write was rejected: an
-            # idempotent change can already match. The library can silently
-            # fall back to cached data on errors; we cannot detect that here.
+            # Request fresh read-back even without reported write success: an
+            # idempotent change can already match. Forced-read failures are
+            # surfaced by the library instead of returning stale cache data.
             for attempt in range(PC_RULE_CONFIRM_ATTEMPTS):
                 refreshed = await self.update_pc_rules(force=True)
                 if refreshed and self._internet_access_state_matches(
@@ -784,8 +803,8 @@ class ARDevice:
             message = (
                 "The router's internet-access state could not be confirmed"
             )
-            if not result:
-                message += " after the router rejected the write"
+            if result.success is not True:
+                message += " and the service did not report write success"
             raise HomeAssistantError(message)
 
     def _internet_access_state_matches(
