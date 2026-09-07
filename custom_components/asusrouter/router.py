@@ -13,7 +13,7 @@ from asusrouter.error import AsusRouterError
 from asusrouter.modules.client import AsusClientConnectionWlan
 from asusrouter.modules.connection import ConnectionState, ConnectionType
 from asusrouter.modules.identity import AsusDevice
-from asusrouter.modules.parental_control import ParentalControlRule
+from asusrouter.modules.parental_control import ParentalControlRule, PCRuleType
 from homeassistant.components.device_tracker import CONF_CONSIDER_HOME
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -100,6 +100,12 @@ from .const import (
 from .helpers import as_dict
 
 _LOGGER = logging.getLogger(__name__)
+
+# Allow restart_firewall to settle with three forced reads, one second apart.
+# Each read can itself take the library's 15s connection timeout, so the
+# confirmation window is roughly 3 x 15s + 2s in the worst case.
+PC_RULE_CONFIRM_ATTEMPTS = 3
+PC_RULE_CONFIRM_DELAY = 1.0
 
 
 class ARSensorHandler:
@@ -337,6 +343,7 @@ class ARDevice:
             CONF_DEFAULT_CREATE_DEVICES,
         )
         self._pc_rules: dict[str, Any] = {}
+        self._pc_rule_lock = asyncio.Lock()
         self._pc_switch_reload_lock = asyncio.Lock()
         self._static_dhcp_lock = asyncio.Lock()
         self._static_dhcp_leases: list[dict[str, str]] = []
@@ -744,6 +751,77 @@ class ARDevice:
         if new_node:
             async_dispatcher_send(self.hass, self.signal_aimesh_new)
 
+    async def async_set_internet_access(
+        self,
+        *,
+        state: str,
+        devices: list[dict[str, Any]],
+    ) -> None:
+        """Serialize each router's rule read, write and confirmation."""
+
+        async with self._pc_rule_lock:
+            result = await self.bridge.async_pc_rule(
+                state=state, devices=devices
+            )
+            if not result:
+                _LOGGER.debug(
+                    "Parental-control write rejected; checking whether "
+                    "the requested state already holds"
+                )
+
+            # Request fresh read-back even if the write was rejected: an
+            # idempotent change can already match. The library can silently
+            # fall back to cached data on errors; we cannot detect that here.
+            for attempt in range(PC_RULE_CONFIRM_ATTEMPTS):
+                refreshed = await self.update_pc_rules(force=True)
+                if refreshed and self._internet_access_state_matches(
+                    state, devices
+                ):
+                    return
+                if attempt < PC_RULE_CONFIRM_ATTEMPTS - 1:
+                    await asyncio.sleep(PC_RULE_CONFIRM_DELAY)
+
+            message = (
+                "The router's internet-access state could not be confirmed"
+            )
+            if not result:
+                message += " after the router rejected the write"
+            raise HomeAssistantError(message)
+
+    def _internet_access_state_matches(
+        self,
+        state: str,
+        devices: list[dict[str, Any]],
+    ) -> bool:
+        """Return whether the refreshed rules match the requested state."""
+
+        try:
+            rules_by_mac = {
+                self._static_dhcp_mac(rule.mac): rule
+                for rule in self.pc_rules.values()
+                if rule.mac is not None
+            }
+            target_macs = {
+                self._static_dhcp_mac(device[MAC]) for device in devices
+            }
+        except (AttributeError, TypeError, KeyError) as ex:
+            raise HomeAssistantError(
+                f"The router returned unexpected parental-control data: {ex}"
+            ) from ex
+
+        if state == "remove":
+            return target_macs.isdisjoint(rules_by_mac)
+
+        expected_type = {
+            "allow": PCRuleType.DISABLE,
+            "block": PCRuleType.BLOCK,
+        }.get(state)
+        return expected_type is not None and all(
+            (rule := rules_by_mac.get(mac)) is not None
+            and rule.type == expected_type
+            for mac in target_macs
+        )
+
     async def update_pc_rules(self, force: bool = False) -> bool:
         """Update parental control rules."""
 
@@ -751,10 +829,8 @@ class ARDevice:
             "Updating parental control rules for '%s'", self._conf_host
         )
         try:
-            pc_data = (
-                await self.bridge._get_data_parental_control(  # pylint: disable=protected-access
-                    force=force
-                )
+            pc_data = await self.bridge._get_data_parental_control(  # pylint: disable=protected-access
+                force=force
             )
         except UpdateFailed as ex:
             if not self._connect_error:
@@ -768,7 +844,8 @@ class ARDevice:
 
         new_flag = False
 
-        rules: dict[str, ParentalControlRule] = pc_data.get("rules", {})
+        # The library returns its live cached dict; never pop from that table.
+        rules = dict(self.bridge._validate_pc_rules(pc_data))
 
         rules_to_save = {}
 

@@ -5,10 +5,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from asusrouter.error import AsusRouterError
 from asusrouter.modules.parental_control import ParentalControlRule, PCRuleType
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
@@ -212,14 +214,15 @@ class ClientInternetSwitch(SwitchEntity):
 
         try:
             _LOGGER.debug("Changing PC rule to %s", state)
-            result = await self._router.bridge.api.async_set_state(
-                state=state, **kwargs
+            await self._router.async_set_internet_access(
+                state="block" if state.type == PCRuleType.BLOCK else "allow",
+                devices=[{"mac": state.mac, "name": state.name}],
             )
-            self._rule = state
-            if not result:
-                _LOGGER.debug("State was not set!")
-        except Exception as ex:  # noqa: BLE001
-            _LOGGER.error("Unable to set state with an exception: %s", ex)
+        except (AsusRouterError, OSError) as ex:
+            raise HomeAssistantError(
+                f"Unable to change device internet access: {ex}"
+            ) from ex
+        self._rule = state
 
     async def async_turn_on(
         self,

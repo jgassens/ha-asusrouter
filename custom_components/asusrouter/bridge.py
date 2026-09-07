@@ -658,6 +658,7 @@ class ARBridge:
     def _process_data_parental_control(raw: dict[str, Any]) -> dict[str, Any]:
         """Process `parental control` data."""
 
+        ARBridge._validate_pc_rules(raw)
         rules_list = []
         rules = raw.get("rules")
         if rules is not None:
@@ -839,9 +840,27 @@ class ARBridge:
 
         return ParentalControlRule(
             mac=mac.upper(),
-            name=device.get("name", ""),
+            name=device.get("name") or "",
             type=rule_type,
         )
+
+    @staticmethod
+    def _validate_pc_rules(payload: Any) -> dict[str, ParentalControlRule]:
+        """Reject an unreadable table before modifying or confirming rules."""
+
+        rules = payload.get("rules") if isinstance(payload, dict) else None
+        if not isinstance(rules, dict) or any(
+            not isinstance(mac, str)
+            or not mac
+            or not isinstance(rule, ParentalControlRule)
+            or rule.mac != mac
+            for mac, rule in rules.items()
+        ):
+            raise AsusRouterError(
+                "Unable to read the current parental control rules "
+                "from the router"
+            )
+        return rules
 
     async def async_pc_rule(
         self,
@@ -849,7 +868,10 @@ class ARBridge:
         state: str,
         devices: list[dict[str, Any]],
     ) -> bool:
-        """Change parental control rule(s)."""
+        """Write one table for ARDevice.async_set_internet_access.
+
+        The caller must hold the router's rule lock through confirmation.
+        """
 
         match state:
             case a if a in ("disable", "allow"):
@@ -871,25 +893,25 @@ class ARBridge:
             _LOGGER.warning("No valid parental control targets were provided")
             return False
 
-        # The library writes parental control rules as a whole table built
-        # from its cached router state, and that cache defaults to empty.
-        # Fetch the current rules fresh from the router so a cold or
-        # expired cache can never wipe rules we were not asked to change.
+        # Request a fresh snapshot for this whole-table write. The library
+        # can silently return its cache on connection/data errors; force=True
+        # cannot guarantee freshness until that library defect is fixed.
         pc_data = await self.api.async_get_data(
             AsusData.PARENTAL_CONTROL, force=True
         )
-        current_rules = (
-            pc_data.get("rules") if isinstance(pc_data, dict) else None
-        )
-        if not isinstance(current_rules, dict):
-            raise AsusRouterError(
-                "Unable to read the current parental control rules "
-                "from the router"
-            )
+        current_rules = self._validate_pc_rules(pc_data)
 
-        # Apply every requested change against the same known-current
-        # rule set and write the whole table in a single request.
-        new_rules = dict(current_rules)
+        # Copy retained rules without check_rule: its defaults would change
+        # existing empty fields. The reader represents those fields as None,
+        # which the writer would otherwise serialize as the literal "None".
+        new_rules = {
+            mac: dataclasses.replace(
+                rule,
+                name="" if rule.name is None else rule.name,
+                timemap="" if rule.timemap is None else rule.timemap,
+            )
+            for mac, rule in current_rules.items()
+        }
         for rule in rules_to_set:
             if rule_type is PCRuleType.REMOVE:
                 new_rules = remove_rule(new_rules, rule)

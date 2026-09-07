@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import asyncio
 from ipaddress import IPv4Address
+import logging
 import re
 from typing import Any, cast
 
 from asusrouter.error import AsusRouterError
-from asusrouter.modules.parental_control import PCRuleType
 from homeassistant.const import ATTR_ENTITY_ID, Platform
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
@@ -32,10 +31,7 @@ ATTR_HOSTNAME = "hostname"
 ATTR_NAME = "name"
 ATTR_STATE = "state"
 
-# The router needs a moment to apply `restart_firewall` before a fresh
-# read-back can confirm the new parental-control state.
-PC_RULE_CONFIRM_ATTEMPTS = 3
-PC_RULE_CONFIRM_DELAY = 1.0
+_LOGGER = logging.getLogger(__name__)
 
 SERVICE_DEVICE_INTERNET_ACCESS = "device_internet_access"
 SERVICE_REFRESH_STATIC_DHCP_LEASES = "refresh_static_dhcp_leases"
@@ -304,42 +300,6 @@ def _direct_device_router(
     return routers[0]
 
 
-def _internet_access_state_matches(
-    router: ARDevice,
-    state: str,
-    devices: list[dict[str, Any]],
-) -> bool:
-    """Return whether the refreshed rules match the requested state."""
-
-    try:
-        rules_by_mac = {
-            router._static_dhcp_mac(rule.mac): rule
-            for rule in router.pc_rules.values()
-            if rule.mac is not None
-        }
-        target_macs = {
-            router._static_dhcp_mac(device[MAC]) for device in devices
-        }
-    except (AttributeError, TypeError, KeyError) as ex:
-        raise HomeAssistantError(
-            "The router returned unexpected parental-control data: "
-            f"{ex}"
-        ) from ex
-
-    if state == "remove":
-        return target_macs.isdisjoint(rules_by_mac)
-
-    expected_type = {
-        "allow": PCRuleType.DISABLE,
-        "block": PCRuleType.BLOCK,
-    }.get(state)
-    return expected_type is not None and all(
-        (rule := rules_by_mac.get(mac)) is not None
-        and rule.type == expected_type
-        for mac in target_macs
-    )
-
-
 async def _reload_parental_control_switches(
     router: ARDevice,
     removed_devices: list[dict[str, Any]],
@@ -357,6 +317,7 @@ async def _reload_parental_control_switches(
                 "Unable to reload AsusRouter parental-control switches"
             )
 
+        cleanup_error = None
         try:
             removed_unique_ids = {
                 to_unique_id(
@@ -375,12 +336,24 @@ async def _reload_parental_control_switches(
                     and entry.unique_id in removed_unique_ids
                 ):
                     registry.async_remove(entry.entity_id)
+        except Exception as ex:
+            cleanup_error = ex
+            raise
         finally:
-            # Always restore the switch platform, even when the registry
-            # cleanup fails, so no switch entities are left unloaded.
-            await router.hass.config_entries.async_forward_entry_setups(
-                router._config_entry, [Platform.SWITCH]
-            )
+            # Always attempt to restore the platform, preserving any original
+            # cleanup exception if forwarding also fails.
+            try:
+                await router.hass.config_entries.async_forward_entry_setups(
+                    router._config_entry, [Platform.SWITCH]
+                )
+            except Exception as forward_error:
+                _LOGGER.exception(
+                    "Unable to restore AsusRouter switches; "
+                    "the switch platform is still unloaded"
+                )
+                if cleanup_error is not None:
+                    raise cleanup_error from forward_error
+                raise
 
 
 def _get_client_field(
@@ -453,33 +426,6 @@ def _client_entity_data(
     return router, mac, ip, hostname
 
 
-async def _async_confirm_internet_access(
-    router: ARDevice,
-    state: str,
-    devices: list[dict[str, Any]],
-) -> None:
-    """Confirm the router applied the requested internet-access state.
-
-    The confirmation reads fresh data, bypassing the library cache. The
-    router needs a moment to apply `restart_firewall`, so give it a
-    bounded chance to settle instead of trusting a single, possibly
-    stale, read-back.
-    """
-
-    for attempt in range(PC_RULE_CONFIRM_ATTEMPTS):
-        refreshed = await router.update_pc_rules(force=True)
-        if refreshed and _internet_access_state_matches(
-            router, state, devices
-        ):
-            return
-        if attempt < PC_RULE_CONFIRM_ATTEMPTS - 1:
-            await asyncio.sleep(PC_RULE_CONFIRM_DELAY)
-
-    raise HomeAssistantError(
-        "The router's internet-access state could not be confirmed"
-    )
-
-
 async def _async_device_internet_access(
     hass: HomeAssistant,
     call: ServiceCall,
@@ -505,7 +451,7 @@ async def _async_device_internet_access(
 
     for router, devices in router_devices.items():
         try:
-            await router.bridge.async_pc_rule(
+            await router.async_set_internet_access(
                 state=call.data[ATTR_STATE],
                 devices=devices,
             )
@@ -513,10 +459,6 @@ async def _async_device_internet_access(
             raise HomeAssistantError(
                 f"Unable to change device internet access: {ex}"
             ) from ex
-
-        await _async_confirm_internet_access(
-            router, call.data[ATTR_STATE], devices
-        )
 
         if call.data[ATTR_STATE] == "remove":
             await _reload_parental_control_switches(router, devices)
