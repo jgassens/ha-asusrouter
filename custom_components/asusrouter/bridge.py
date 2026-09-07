@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 import dataclasses
+import inspect
 import logging
 from typing import Any, cast
 
@@ -22,10 +23,13 @@ from asusrouter.modules.homeassistant import (
 )
 from asusrouter.modules.identity import AsusDevice
 from asusrouter.modules.parental_control import (
+    ParentalControlCapabilities,
+    ParentalControlCapacityError,
     ParentalControlRule,
     PCRuleType,
     add_rule,
     remove_rule,
+    validate_pc_capacity,
     write_pc_rules,
 )
 from asusrouter.modules.service import ServiceResult
@@ -38,6 +42,7 @@ from homeassistant.const import (
     CONF_USERNAME,
 )
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ServiceValidationError
 from homeassistant.helpers.aiohttp_client import async_create_clientsession
 from homeassistant.helpers.device_registry import format_mac
 from homeassistant.helpers.update_coordinator import UpdateFailed
@@ -873,18 +878,15 @@ class ARBridge:
         The caller must hold the router's rule lock through confirmation.
         """
 
-        match state:
-            case a if a in ("disable", "allow"):
-                rule_type = PCRuleType.DISABLE
-            case "block":
-                rule_type = PCRuleType.BLOCK
-            case "remove":
-                rule_type = PCRuleType.REMOVE
-            case _:
-                _LOGGER.warning("Unknown parental control state: %s", state)
-                return ServiceResult(
-                    success=False, needed_time=None, last_id=None
-                )
+        rule_type = {
+            "disable": PCRuleType.DISABLE,
+            "allow": PCRuleType.DISABLE,
+            "block": PCRuleType.BLOCK,
+            "remove": PCRuleType.REMOVE,
+        }.get(state)
+        if rule_type is None:
+            _LOGGER.warning("Unknown parental control state: %s", state)
+            return ServiceResult(success=False, needed_time=None, last_id=None)
 
         rules_to_set = [
             rule
@@ -894,6 +896,20 @@ class ARBridge:
         if not rules_to_set:
             _LOGGER.warning("No valid parental control targets were provided")
             return ServiceResult(success=False, needed_time=None, last_id=None)
+
+        if rule_type is PCRuleType.REMOVE:
+            capabilities = None
+            update_rule = remove_rule
+        else:
+            capabilities_request = (
+                self.api.async_get_parental_control_capabilities()
+            )
+            capabilities = (
+                await capabilities_request
+                if inspect.isawaitable(capabilities_request)
+                else ParentalControlCapabilities()
+            )
+            update_rule = add_rule
 
         # Request a fresh snapshot for this whole-table write. A forced read
         # raises instead of returning cached data when the live request fails.
@@ -914,10 +930,13 @@ class ARBridge:
             for mac, rule in current_rules.items()
         }
         for rule in rules_to_set:
-            if rule_type is PCRuleType.REMOVE:
-                new_rules = remove_rule(new_rules, rule)
-            else:
-                new_rules = add_rule(new_rules, rule)
+            new_rules = update_rule(new_rules, rule)
+
+        if capabilities is not None:
+            try:
+                validate_pc_capacity(current_rules, new_rules, capabilities)
+            except ParentalControlCapacityError as ex:
+                raise ServiceValidationError(str(ex)) from ex
 
         result = await self.api.async_run_service_result(
             service="restart_firewall",

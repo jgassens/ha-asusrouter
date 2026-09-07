@@ -12,6 +12,7 @@ from asusrouter.modules.parental_control import (
     KEY_PC_NAME,
     KEY_PC_TIMEMAP,
     KEY_PC_TYPE,
+    ParentalControlCapabilities,
     ParentalControlRule,
     PCRuleType,
     read_pc_rules,
@@ -56,6 +57,9 @@ def _bridge(
     bridge._api = Mock()
     bridge.api.async_get_data = AsyncMock(
         return_value={"rules": rules if rules is not None else {}}
+    )
+    bridge.api.async_get_parental_control_capabilities = AsyncMock(
+        return_value=ParentalControlCapabilities()
     )
     bridge.api.async_run_service_result = AsyncMock(
         side_effect=[_result(success) for success in (results or (True,))]
