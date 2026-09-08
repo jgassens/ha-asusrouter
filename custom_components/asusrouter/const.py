@@ -1464,4 +1464,4 @@ STEP_SECURITY = "security"
 # Lowest companion-library version this integration can run against. pip
 # reinstalls a git-pinned requirement only when its version changes, so the
 # library version must be bumped whenever the pin moves.
-MIN_LIBRARY_VERSION = "2.0.0+jgassens.2"
+MIN_LIBRARY_VERSION = "2.0.0+jgassens.3"
