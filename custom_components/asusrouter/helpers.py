@@ -5,6 +5,30 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from asusrouter.error import AsusRouterAccessError
+from asusrouter.modules.endpoint.error import AccessError
+
+
+def access_error_details(
+    ex: BaseException,
+) -> tuple[AccessError | None, dict[str, Any]]:
+    """Return the access error code and attributes from an exception chain.
+
+    The library wraps the login failure in a message-only exception, so
+    the code and attributes live on the original cause.
+    """
+
+    seen: set[int] = set()
+    current: BaseException | None = ex
+    while current is not None and id(current) not in seen:
+        seen.add(id(current))
+        if isinstance(current, AsusRouterAccessError):
+            _message, code, attributes, *_rest = (*current.args, None, None)
+            if isinstance(code, AccessError):
+                return code, dict(attributes or {})
+        current = current.__cause__ or current.__context__
+    return None, {}
+
 
 def clean_dict(raw: dict[str, Any]) -> dict[str, Any]:
     """Clean dictionary from None values."""

@@ -103,6 +103,7 @@ from .const import (
     STEP_SECURITY,
     UNIQUE_ID,
 )
+from .helpers import access_error_details
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -214,9 +215,9 @@ async def _async_check_connection(  # noqa: C901, PLR0911, PLR0912
         await bridge.async_connect()
     # Access error
     except AsusRouterAccessError as ex:
-        args = ex.args
+        code, attributes = access_error_details(ex)
         # Wrong credentials
-        if args[1] == AccessError.CREDENTIALS:
+        if code == AccessError.CREDENTIALS:
             _LOGGER.error(
                 "Error during connection to `%s`. Wrong credentials", host
             )
@@ -224,8 +225,8 @@ async def _async_check_connection(  # noqa: C901, PLR0911, PLR0912
                 ERRORS: RESULT_WRONG_CREDENTIALS,
             }
         # Try again later / too many attempts
-        if args[1] == AccessError.TRY_AGAIN:
-            timeout = args[2].get("timeout")
+        if code == AccessError.TRY_AGAIN:
+            timeout = attributes.get("timeout")
             _LOGGER.error(
                 "Device `%s` has reported block for the login "
                 "(to many wrong attempts were made). Please try again "
@@ -237,7 +238,7 @@ async def _async_check_connection(  # noqa: C901, PLR0911, PLR0912
                 ERRORS: RESULT_LOGIN_BLOCKED,
             }
         # Reset required
-        if args[1] == AccessError.RESET_REQUIRED:
+        if code == AccessError.RESET_REQUIRED:
             _LOGGER.error(
                 "Device `%s` requires a reset. Please reset the device. "
                 "You won't be able to login to the device until the reset "
@@ -248,7 +249,7 @@ async def _async_check_connection(  # noqa: C901, PLR0911, PLR0912
                 ERRORS: RESULT_LOGIN_BLOCKED,
             }
         # Captcha required
-        if args[1] == AccessError.CAPTCHA:
+        if code == AccessError.CAPTCHA:
             _LOGGER.error(
                 "Device `%s` requires a captcha. Please login to the device "
                 "and complete the captcha. Integration cannot proceed with "
@@ -262,13 +263,13 @@ async def _async_check_connection(  # noqa: C901, PLR0911, PLR0912
                 ERRORS: RESULT_LOGIN_BLOCKED,
             }
         # Another error
-        if args[1] == AccessError.ANOTHER:
+        if code == AccessError.ANOTHER:
             _LOGGER.error("Device `%s` has reported `another` error.", host)
             return {
                 ERRORS: RESULT_ERROR,
             }
         # Unknown error
-        if args[1] == AccessError.UNKNOWN:
+        if code == AccessError.UNKNOWN:
             _LOGGER.error("Device `%s` has reported `unknown` error.", host)
             return {
                 ERRORS: RESULT_UNKNOWN,
@@ -750,6 +751,7 @@ class ARFlowHandler(ConfigFlow, domain=DOMAIN):
             step_id="reauth_confirm",
             data_schema=_create_form_reauth(user_input),
             errors=errors,
+            description_placeholders={"name": entry.title},
         )
 
     # Find the device

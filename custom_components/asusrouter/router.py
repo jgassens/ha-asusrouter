@@ -12,6 +12,7 @@ from typing import Any, cast
 from asusrouter.error import AsusRouterAccessError, AsusRouterError
 from asusrouter.modules.client import AsusClientConnectionWlan
 from asusrouter.modules.connection import ConnectionState, ConnectionType
+from asusrouter.modules.endpoint.error import AccessError
 from asusrouter.modules.identity import AsusDevice
 from asusrouter.modules.parental_control import ParentalControlRule, PCRuleType
 from homeassistant.components.device_tracker import CONF_CONSIDER_HOME
@@ -98,7 +99,7 @@ from .const import (
     SSL,
     STATIC_DHCP,
 )
-from .helpers import as_dict, to_unique_id
+from .helpers import access_error_details, as_dict, to_unique_id
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -371,7 +372,10 @@ class ARDevice:
         try:
             await self.bridge.async_connect()
         except AsusRouterAccessError as ex:
-            raise ConfigEntryAuthFailed from ex
+            code, _ = access_error_details(ex)
+            if code == AccessError.CREDENTIALS:
+                raise ConfigEntryAuthFailed from ex
+            raise ConfigEntryNotReady from ex
         except (OSError, AsusRouterError) as ex:
             raise ConfigEntryNotReady from ex
         if not self.bridge.connected:

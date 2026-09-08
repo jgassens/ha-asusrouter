@@ -5,6 +5,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, Mock, patch
 
 from asusrouter.error import AsusRouterAccessError
+from asusrouter.modules.endpoint.error import AccessError
 from homeassistant.config_entries import SOURCE_REAUTH
 from homeassistant.const import (
     CONF_HOST,
@@ -14,13 +15,14 @@ from homeassistant.const import (
     CONF_USERNAME,
 )
 from homeassistant.data_entry_flow import FlowResultType
-from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 import pytest
 
 from custom_components.asusrouter import update_listener
 from custom_components.asusrouter.config_flow import (
     ARFlowHandler,
     AROptionsFlowHandler,
+    _async_check_connection,
 )
 from custom_components.asusrouter.const import (
     ASUSROUTER,
@@ -28,6 +30,7 @@ from custom_components.asusrouter.const import (
     CONFIGS,
     DOMAIN,
     ERRORS,
+    RESULT_LOGIN_BLOCKED,
     RESULT_WRONG_CREDENTIALS,
     ROUTER,
 )
@@ -121,18 +124,81 @@ async def test_password_only_option_update_reloads_entry() -> None:
     hass.config_entries.async_reload.assert_awaited_once_with(ENTRY_ID)
 
 
+def _wrapped_access_error(code: AccessError) -> AsusRouterAccessError:
+    """Build the library's message-only wrapper around an access error."""
+
+    original = AsusRouterAccessError("Access error", code, {"timeout": 30})
+    wrapped = AsusRouterAccessError("Cannot access login.cgi")
+    wrapped.__cause__ = original
+    return wrapped
+
+
 @pytest.mark.asyncio
-async def test_setup_access_error_raises_auth_failed() -> None:
-    """An access failure starts reauth instead of an endless retry loop."""
+async def test_setup_wrong_credentials_raises_auth_failed() -> None:
+    """Rejected credentials start reauth instead of an endless retry loop."""
 
     router = ARDevice.__new__(ARDevice)
     router.bridge = Mock()
     router.bridge.async_connect = AsyncMock(
-        side_effect=AsusRouterAccessError("access denied")
+        side_effect=_wrapped_access_error(AccessError.CREDENTIALS)
     )
 
     with pytest.raises(ConfigEntryAuthFailed):
         await router.setup()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "error",
+    [
+        _wrapped_access_error(AccessError.TRY_AGAIN),
+        _wrapped_access_error(AccessError.ANOTHER),
+        AsusRouterAccessError("Cannot access login.cgi, status 503"),
+    ],
+)
+async def test_setup_transient_access_error_retries(
+    error: AsusRouterAccessError,
+) -> None:
+    """Lockouts, other admins, and bad statuses retry instead of reauth."""
+
+    router = ARDevice.__new__(ARDevice)
+    router.bridge = Mock()
+    router.bridge.async_connect = AsyncMock(side_effect=error)
+
+    with pytest.raises(ConfigEntryNotReady):
+        await router.setup()
+
+
+@pytest.mark.asyncio
+async def test_check_connection_reads_wrapped_credentials_error() -> None:
+    """The flow finds the credentials code behind the library wrapper."""
+
+    with patch(
+        "custom_components.asusrouter.config_flow.ARBridge"
+    ) as bridge_class:
+        bridge_class.return_value.async_connect = AsyncMock(
+            side_effect=_wrapped_access_error(AccessError.CREDENTIALS)
+        )
+        bridge_class.return_value.async_clean = AsyncMock()
+        result = await _async_check_connection(Mock(), {CONF_HOST: HOST})
+
+    assert result == {ERRORS: RESULT_WRONG_CREDENTIALS}
+
+
+@pytest.mark.asyncio
+async def test_check_connection_reads_wrapped_try_again_error() -> None:
+    """A lockout is reported with its remaining time, not as unknown."""
+
+    with patch(
+        "custom_components.asusrouter.config_flow.ARBridge"
+    ) as bridge_class:
+        bridge_class.return_value.async_connect = AsyncMock(
+            side_effect=_wrapped_access_error(AccessError.TRY_AGAIN)
+        )
+        bridge_class.return_value.async_clean = AsyncMock()
+        result = await _async_check_connection(Mock(), {CONF_HOST: HOST})
+
+    assert result[ERRORS] == RESULT_LOGIN_BLOCKED
 
 
 @pytest.mark.asyncio
@@ -158,6 +224,9 @@ async def test_reauth_confirm_updates_options_and_aborts() -> None:
 
     assert initial_result["type"] is FlowResultType.FORM
     assert initial_result["step_id"] == "reauth_confirm"
+    assert initial_result["description_placeholders"] == {
+        "name": "Test router"
+    }
 
     submitted = {
         CONF_USERNAME: NEW_CREDENTIALS[CONF_USERNAME],
