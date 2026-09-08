@@ -19,11 +19,18 @@
           "ssl": "Verwenden Sie eine SSL-Verbindung"
         }
       },
+      "reauth_confirm": {
+        "title": "Update credentials for {name}",
+        "description": "Enter the new credentials for your router.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      },
       "operation": {
         "title": "Betriebsmodus",
         "data": {
           "mode": "Gerätemodus",
-          "enable_control": "Aktivieren Sie die Gerätesteuerung",
           "split_intervals": "Aktivieren Sie Aktualisierungsintervalle pro Sensor"
         }
       },
@@ -46,8 +53,6 @@
           "clients_in_attr": "[NT] Store clients list in attributes of the connected devices sensor",
           "client_filter": "[NT] Filter clients",
           "client_filter_list": "[NT] List of clients to filter (only active if filter is enabled)",
-          "force_clients": "[NT] Force clients update",
-          "force_clients_waittime": "[NT] Wait time (force update -> check) (seconds)",
           "latest_connected": "Anzahl der zuletzt verbundenen Geräte, die gespeichert werden sollen",
           "interval_devices": "Geräte / AiMesh-Update",
           "consider_home": "Betrachten Sie das Gerät zu Hause für (nach dem letzten „Online“-Zustand)",
@@ -79,9 +84,7 @@
       "interfaces": {
         "title": "Zu überwachende Schnittstellen",
         "data": {
-          "interfaces": "Wählen Sie die zu überwachenden Netzwerkschnittstellen aus",
-          "units_speed": "Einheiten für Geschwindigkeit",
-          "units_traffic": "Einheiten für den Verkehr"
+          "interfaces": "Wählen Sie die zu überwachenden Netzwerkschnittstellen aus"
         }
       },
       "events": {
@@ -105,20 +108,17 @@
     },
     "error": {
       "access_error": "[NT] Access error. Refer to the log for details",
-      "cannot_resolve_host": "Kann den Hostnamen nicht auflösen. Versuchen Sie es mit der IP-Adresse",
+      "cannot_resolve": "Kann den Hostnamen nicht auflösen. Versuchen Sie es mit der IP-Adresse",
       "connection_error": "[NT] Connection error. Refer to the log for details",
-      "connection_refused": "Verbindung abgelehnt",
       "error": "Verbindung nicht möglich",
       "login_blocked": "Die Anmeldung wird vom Gerät blockiert. Warten Sie",
-      "password_missing": "Passwort fehlt",
       "timeout": "[NT] Timeout error",
       "unknown": "Unbekannter Fehler",
       "wrong_credentials": "Falsche Anmeldeinformationen"
     },
     "abort": {
       "already_configured": "Gerät ist bereits konfiguriert",
-      "no_serial": "Dieses Gerät gibt keine Seriennummer an. Erkennung abgebrochen",
-      "not_router": "Kein Asus-Router. Kann nicht konfiguriert werden"
+      "reauth_successful": "Re-authentication was successful"
     }
   },
   "options": {
@@ -133,8 +133,7 @@
           "interfaces": "Zu überwachende Schnittstellen",
           "events": "Home Assistant-Ereignisse",
           "security": "Sicherheitsoptionen",
-          "finish": "Speichern und fertig",
-          "device": "Identifikations- und Verbindungsparameter"
+          "finish": "Speichern und fertig"
         }
       },
       "credentials": {
@@ -151,7 +150,6 @@
         "title": "Betriebsmodus",
         "data": {
           "mode": "Gerätemodus",
-          "enable_control": "Aktivieren Sie die Gerätesteuerung",
           "split_intervals": "Aktivieren Sie Aktualisierungsintervalle pro Sensor"
         }
       },
@@ -163,8 +161,6 @@
           "clients_in_attr": "[NT] Store clients list in attributes of the connected devices sensor",
           "client_filter": "[NT] Filter clients",
           "client_filter_list": "[NT] List of clients to filter (only active if filter is enabled)",
-          "force_clients": "[NT] Force clients update",
-          "force_clients_waittime": "[NT] Wait time (force update -> check) (seconds)",
           "latest_connected": "Anzahl der zuletzt verbundenen Geräte, die gespeichert werden sollen",
           "interval_devices": "Geräte / AiMesh-Update",
           "consider_home": "Betrachten Sie das Gerät zu Hause für (nach dem letzten „Online“-Zustand)",
@@ -183,23 +179,21 @@
           "interval_light": "Lichtdaten",
           "interval_misc": "Verschiedene Daten",
           "interval_network": "Netzwerkstatistikdaten",
-          "interval_wlan": "WLAN-Daten",
-          "interval_wan": "WAN-Daten",
-          "interval_vpn": "VPN-Daten",
-          "interval_temperature": "Temperaturdaten",
-          "interval_sysinfo": "Sysinfo-Daten",
-          "interval_ram": "RAM-Daten",
+          "interval_parental_control": "Daten der Kindersicherung",
           "interval_ports": "Portdaten",
-          "interval_parental_control": "Daten der Kindersicherung"
+          "interval_ram": "RAM-Daten",
+          "interval_sysinfo": "Sysinfo-Daten",
+          "interval_temperature": "Temperaturdaten",
+          "interval_vpn": "VPN-Daten",
+          "interval_wan": "WAN-Daten",
+          "interval_wlan": "WLAN-Daten"
         }
       },
       "interfaces": {
+        "title": "Zu überwachende Schnittstellen",
         "data": {
-          "interfaces": "Wählen Sie die zu überwachenden Netzwerkschnittstellen aus",
-          "units_speed": "Einheiten für Geschwindigkeit",
-          "units_traffic": "Einheiten für den Verkehr"
-        },
-        "title": "Zu überwachende Schnittstellen"
+          "interfaces": "Wählen Sie die zu überwachenden Netzwerkschnittstellen aus"
+        }
       },
       "events": {
         "title": "Veranstaltungen",
@@ -223,11 +217,11 @@
     "error": {
       "access_error": "[NT] Access error. Refer to the log for details",
       "connection_error": "[NT] Connection error. Refer to the log for details",
-      "connection_refused": "Verbindung abgelehnt",
       "error": "Verbindung nicht möglich",
       "login_blocked": "Die Anmeldung wird vom Gerät blockiert. Warten Sie mal",
-      "not_confirmed": "Sie müssen bestätigen",
-      "timeout": "[NT] Timeout error"
+      "timeout": "[NT] Timeout error",
+      "unknown": "Unknown error",
+      "wrong_credentials": "Wrong credentials"
     }
   },
   "services": {
@@ -254,6 +248,77 @@
           "description": "Select device(s) to remove from the device registry"
         }
       }
+    },
+    "set_static_dhcp_lease": {
+      "name": "Set static DHCP lease",
+      "description": "Create or update a static DHCP reservation on the selected router.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Router",
+          "description": "The AsusRouter config entry to change."
+        },
+        "mac": {
+          "name": "MAC address",
+          "description": "The client MAC address to reserve."
+        },
+        "ip": {
+          "name": "IP address",
+          "description": "The IPv4 address to reserve for the client."
+        },
+        "hostname": {
+          "name": "Hostname",
+          "description": "Optional hostname to store with the reservation."
+        },
+        "dns": {
+          "name": "DNS",
+          "description": "Optional DNS IPv4 address to store with the reservation."
+        }
+      }
+    },
+    "remove_static_dhcp_lease": {
+      "name": "Remove static DHCP lease",
+      "description": "Remove a static DHCP reservation from the selected router.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Router",
+          "description": "The AsusRouter config entry to change."
+        },
+        "mac": {
+          "name": "MAC address",
+          "description": "The client MAC address to remove from reservations."
+        }
+      }
+    },
+    "reserve_current_ip": {
+      "name": "Reserve current IP",
+      "description": "Reserve the current IP address for selected AsusRouter device trackers."
+    },
+    "refresh_static_dhcp_leases": {
+      "name": "Refresh static DHCP leases",
+      "description": "Refresh the router static DHCP reservation sensor.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Router",
+          "description": "The AsusRouter config entry to refresh."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_static_dhcp_ip": {
+      "message": "Invalid static DHCP IPv4 address: {ip}"
+    },
+    "invalid_static_dhcp_mac": {
+      "message": "Invalid static DHCP MAC address: {mac}"
+    },
+    "static_dhcp_duplicate_ip": {
+      "message": "IP address {ip} is already reserved for {mac}."
+    },
+    "static_dhcp_existing_reservation": {
+      "message": "{mac} is already reserved to {ip}. Use set_static_dhcp_lease to change it."
+    },
+    "static_dhcp_router_mode_required": {
+      "message": "Static DHCP leases can only be changed in router mode."
     }
   },
   "selector": {

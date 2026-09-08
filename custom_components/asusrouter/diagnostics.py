@@ -67,8 +67,11 @@ async def async_get_config_entry_diagnostics(
                     dict(state_dict["attributes"]), TO_REDACT_ATTRS
                 )
             # Remove sensitive info from sensors states.
-            if entity_entry.original_name in TO_REDACT_STATE:
-                state_dict = async_redact_data(state_dict, "state")
+            if (
+                entity_entry.domain,
+                entity_entry.original_device_class,
+            ) in TO_REDACT_STATE:
+                state_dict = async_redact_data(state_dict, ["state"])
 
         data["device"]["entities"][entity_entry.entity_id] = {
             **async_redact_data(
@@ -80,13 +83,16 @@ async def async_get_config_entry_diagnostics(
 
     for device in router.devices.values():
         data["device"]["tracked_devices"].append(
-            {
-                "name": device.name,
-                "ip_address": device.ip_address,
-                "last_activity": device.extra_state_attributes.get(
-                    DEVICE_ATTRIBUTE_LAST_ACTIVITY, None
-                ),
-            }
+            async_redact_data(
+                {
+                    "name": device.name,
+                    "ip_address": device.ip_address,
+                    "last_activity": device.extra_state_attributes.get(
+                        DEVICE_ATTRIBUTE_LAST_ACTIVITY, None
+                    ),
+                },
+                ["name", "ip_address"],
+            )
         )
 
     return data

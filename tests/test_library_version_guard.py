@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
 from homeassistant.exceptions import ConfigEntryError
 import pytest
@@ -49,6 +49,9 @@ def test_guard_rejects_unreadable_version() -> None:
 async def test_setup_entry_checks_library_before_building_router() -> None:
     """A stale library stops setup before the router is constructed."""
 
+    hass = Mock()
+    hass.async_add_executor_job = AsyncMock(side_effect=lambda job: job())
+
     with (
         patch(
             "custom_components.asusrouter.version",
@@ -57,8 +60,9 @@ async def test_setup_entry_checks_library_before_building_router() -> None:
         patch("custom_components.asusrouter.ARDevice") as router,
         pytest.raises(ConfigEntryError),
     ):
-        await async_setup_entry(Mock(), Mock())
+        await async_setup_entry(hass, Mock())
 
+    hass.async_add_executor_job.assert_awaited_once_with(check_library_version)
     router.assert_not_called()
 
 

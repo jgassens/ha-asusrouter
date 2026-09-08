@@ -31,7 +31,6 @@
         "title": "Operation mode",
         "data": {
           "mode": "Device mode",
-          "enable_control": "Enable device control",
           "split_intervals": "Enable per-sensor update intervals"
         }
       },
@@ -54,8 +53,6 @@
           "clients_in_attr": "Store clients list in attributes of the connected devices sensor",
           "client_filter": "Filter clients",
           "client_filter_list": "List of clients to filter (only active if filter is enabled)",
-          "force_clients": "Force clients update",
-          "force_clients_waittime": "Wait time (force update -> check) (seconds)",
           "latest_connected": "Number of latest connected devices to store",
           "interval_devices": "Devices / AiMesh update",
           "consider_home": "Consider device at home for (after last 'online' state)",
@@ -87,9 +84,7 @@
       "interfaces": {
         "title": "Interfaces to monitor",
         "data": {
-          "interfaces": "Select network interfaces to monitor",
-          "units_speed": "Units for speed",
-          "units_traffic": "Units for traffic"
+          "interfaces": "Select network interfaces to monitor"
         }
       },
       "events": {
@@ -113,20 +108,16 @@
     },
     "error": {
       "access_error": "Access error. Refer to the log for details",
-      "cannot_resolve_host": "Cannot resolve hostname. Try with the IP address",
+      "cannot_resolve": "Cannot resolve hostname. Try with the IP address",
       "connection_error": "Connection error. Refer to the log for details",
-      "connection_refused": "Connection refused",
       "error": "Failed to connect",
       "login_blocked": "Login is blocked by the device. Please, wait",
-      "password_missing": "Password is missing",
       "timeout": "Timeout error",
       "unknown": "Unknown error",
       "wrong_credentials": "Wrong credentials"
     },
     "abort": {
       "already_configured": "Device is already configured",
-      "no_serial": "This device does not provide serial number. Discovery aborted",
-      "not_router": "Not an Asus router. Cannot be configured",
       "reauth_successful": "Re-authentication was successful"
     }
   },
@@ -142,8 +133,7 @@
           "interfaces": "Interfaces to monitor",
           "events": "Home Assistant events",
           "security": "Security options",
-          "finish": "Save and finish",
-          "device": "Identification and connection parameters"
+          "finish": "Save and finish"
         }
       },
       "credentials": {
@@ -160,7 +150,6 @@
         "title": "Operation mode",
         "data": {
           "mode": "Device mode",
-          "enable_control": "Enable device control",
           "split_intervals": "Enable per-sensor update intervals"
         }
       },
@@ -172,8 +161,6 @@
           "clients_in_attr": "Store clients list in attributes of the connected devices sensor",
           "client_filter": "Filter clients",
           "client_filter_list": "List of clients to filter",
-          "force_clients": "Force clients update",
-          "force_clients_waittime": "Wait time (force update -> check) (seconds)",
           "latest_connected": "Number of latest connected devices to store",
           "interval_devices": "Devices / AiMesh update",
           "consider_home": "Consider device at home for (after last 'online' state)",
@@ -205,9 +192,7 @@
       "interfaces": {
         "title": "Interfaces to monitor",
         "data": {
-          "interfaces": "Select network interfaces to monitor",
-          "units_speed": "Units for speed",
-          "units_traffic": "Units for traffic"
+          "interfaces": "Select network interfaces to monitor"
         }
       },
       "events": {
@@ -232,10 +217,8 @@
     "error": {
       "access_error": "Access error. Refer to the log for details",
       "connection_error": "Connection error. Refer to the log for details",
-      "connection_refused": "Connection refused",
       "error": "Failed to connect",
       "login_blocked": "Login is blocked by the device. Please, wait",
-      "not_confirmed": "You have to confirm",
       "timeout": "Timeout error",
       "unknown": "Unknown error",
       "wrong_credentials": "Wrong credentials"
@@ -265,6 +248,77 @@
           "description": "Select device(s) to remove from the device registry"
         }
       }
+    },
+    "set_static_dhcp_lease": {
+      "name": "Set static DHCP lease",
+      "description": "Create or update a static DHCP reservation on the selected router.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Router",
+          "description": "The AsusRouter config entry to change."
+        },
+        "mac": {
+          "name": "MAC address",
+          "description": "The client MAC address to reserve."
+        },
+        "ip": {
+          "name": "IP address",
+          "description": "The IPv4 address to reserve for the client."
+        },
+        "hostname": {
+          "name": "Hostname",
+          "description": "Optional hostname to store with the reservation."
+        },
+        "dns": {
+          "name": "DNS",
+          "description": "Optional DNS IPv4 address to store with the reservation."
+        }
+      }
+    },
+    "remove_static_dhcp_lease": {
+      "name": "Remove static DHCP lease",
+      "description": "Remove a static DHCP reservation from the selected router.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Router",
+          "description": "The AsusRouter config entry to change."
+        },
+        "mac": {
+          "name": "MAC address",
+          "description": "The client MAC address to remove from reservations."
+        }
+      }
+    },
+    "reserve_current_ip": {
+      "name": "Reserve current IP",
+      "description": "Reserve the current IP address for selected AsusRouter device trackers."
+    },
+    "refresh_static_dhcp_leases": {
+      "name": "Refresh static DHCP leases",
+      "description": "Refresh the router static DHCP reservation sensor.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Router",
+          "description": "The AsusRouter config entry to refresh."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_static_dhcp_ip": {
+      "message": "Invalid static DHCP IPv4 address: {ip}"
+    },
+    "invalid_static_dhcp_mac": {
+      "message": "Invalid static DHCP MAC address: {mac}"
+    },
+    "static_dhcp_duplicate_ip": {
+      "message": "IP address {ip} is already reserved for {mac}."
+    },
+    "static_dhcp_existing_reservation": {
+      "message": "{mac} is already reserved to {ip}. Use set_static_dhcp_lease to change it."
+    },
+    "static_dhcp_router_mode_required": {
+      "message": "Static DHCP leases can only be changed in router mode."
     }
   },
   "selector": {

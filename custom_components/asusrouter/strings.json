@@ -31,7 +31,6 @@
         "title": "Operation mode",
         "data": {
           "mode": "Device mode",
-          "enable_control": "Enable device control",
           "split_intervals": "Enable per-sensor update intervals"
         }
       },
@@ -54,8 +53,6 @@
           "clients_in_attr": "Store clients list in attributes of the connected devices sensor",
           "client_filter": "Filter clients",
           "client_filter_list": "List of clients to filter (only active if filter is enabled)",
-          "force_clients": "Force clients update",
-          "force_clients_waittime": "Wait time (force update -> check) (seconds)",
           "latest_connected": "Number of latest connected devices to store",
           "interval_devices": "Devices / AiMesh update",
           "consider_home": "Consider device at home for (after last 'online' state)",
@@ -87,9 +84,7 @@
       "interfaces": {
         "title": "Interfaces to monitor",
         "data": {
-          "interfaces": "Select network interfaces to monitor",
-          "units_speed": "Units for speed",
-          "units_traffic": "Units for traffic"
+          "interfaces": "Select network interfaces to monitor"
         }
       },
       "events": {
@@ -113,20 +108,16 @@
     },
     "error": {
       "access_error": "Access error. Refer to the log for details",
-      "cannot_resolve_host": "Cannot resolve hostname. Try with the IP address",
+      "cannot_resolve": "Cannot resolve hostname. Try with the IP address",
       "connection_error": "Connection error. Refer to the log for details",
-      "connection_refused": "Connection refused",
       "error": "[%key:common::config_flow::error::cannot_connect%]",
       "login_blocked": "Login is blocked by the device. Please, wait",
-      "password_missing": "Password is missing",
       "timeout": "Timeout error",
       "unknown": "Unknown error",
       "wrong_credentials": "Wrong credentials"
     },
     "abort": {
       "already_configured": "[%key:common::config_flow::abort::already_configured_device%]",
-      "no_serial": "This device does not provide serial number. Discovery aborted",
-      "not_router": "Not an Asus router. Cannot be configured",
       "reauth_successful": "[%key:common::config_flow::abort::reauth_successful%]"
     }
   },
@@ -159,7 +150,6 @@
         "title": "Operation mode",
         "data": {
           "mode": "Device mode",
-          "enable_control": "Enable device control",
           "split_intervals": "Enable per-sensor update intervals"
         }
       },
@@ -171,8 +161,6 @@
           "clients_in_attr": "Store clients list in attributes of the connected devices sensor",
           "client_filter": "Filter clients",
           "client_filter_list": "List of clients to filter (only active if filter is enabled)",
-          "force_clients": "Force clients update",
-          "force_clients_waittime": "Wait time (force update -> check) (seconds)",
           "latest_connected": "Number of latest connected devices to store",
           "interval_devices": "Devices / AiMesh update",
           "consider_home": "Consider device at home for (after last 'online' state)",
@@ -204,9 +192,7 @@
       "interfaces": {
         "title": "Interfaces to monitor",
         "data": {
-          "interfaces": "Select network interfaces to monitor",
-          "units_speed": "Units for speed",
-          "units_traffic": "Units for traffic"
+          "interfaces": "Select network interfaces to monitor"
         }
       },
       "events": {
@@ -231,10 +217,8 @@
     "error": {
       "access_error": "Access error. Refer to the log for details",
       "connection_error": "Connection error. Refer to the log for details",
-      "connection_refused": "Connection refused",
       "error": "[%key:common::config_flow::error::cannot_connect%]",
       "login_blocked": "Login is blocked by the device. Please, wait",
-      "not_confirmed": "You have to confirm",
       "timeout": "Timeout error",
       "unknown": "Unknown error",
       "wrong_credentials": "Wrong credentials"

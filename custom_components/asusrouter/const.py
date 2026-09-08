@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from typing import Any
 
 from asusrouter.modules.openvpn import AsusOVPNClient, AsusOVPNServer
@@ -17,7 +16,6 @@ from asusrouter.modules.wireguard import (
     AsusWireGuardServer,
 )
 from asusrouter.modules.wlan import AsusWLAN, Wlan
-from asusrouter.tools.converters import safe_int
 from homeassistant.components.binary_sensor import BinarySensorDeviceClass
 from homeassistant.components.button import ButtonDeviceClass
 from homeassistant.components.sensor import SensorDeviceClass, SensorStateClass
@@ -32,7 +30,6 @@ from homeassistant.const import (
     CONF_SSL,
     CONF_UNIQUE_ID,
     CONF_USERNAME,
-    CONF_VERIFY_SSL,
     PERCENTAGE,
     EntityCategory,
     Platform,
@@ -73,9 +70,7 @@ PLATFORMS = [
 
 NUMERIC_CORES = range(1, 9)  # maximum of 8 cores from 1 to 8
 NUMERIC_GWLAN = range(1, 4)  # maximum of 4 guest WLANs from 1 to 3
-NUMERIC_LAN = range(1, 9)  # maximum of 8 LAN ports from 1 to 8
 NUMERIC_OVPN_SERVER = range(1, 3)  # maximum of 2 OVPN servers from 1 to 2
-NUMERIC_WAN = range(4)  # maximum of 4 WAN ports from 0 to 3
 NUMERIC_WLAN = range(4)  # maximum of 4 WLANs from 0 to 3
 
 # <-- NUMERIC
@@ -83,23 +78,17 @@ NUMERIC_WLAN = range(4)  # maximum of 4 WLANs from 0 to 3
 # GENERAL DATA -->
 
 ACCESS_POINT = "access_point"
-ACTION = "action"
-ACTION_MODE = "action_mode"
 AIMESH = "aimesh"
-ALIAS = "alias"
 ALL_CLIENTS = "all_clients"
 API_ID = "api_id"
 API_TYPE = "api_type"
-APPLY = "apply"
 AURA = "aura"
 BITS_PER_SECOND = "bits/s"
 BOOTTIME = "boottime"
 BRIDGE = "bridge"
 BYTES = "bytes"
 CONFIG = "config"
-CONNECTION = "connection"
 COORDINATOR = "coordinator"
-CORE = "core"
 CPU = "cpu"
 DDNS = "ddns"
 DEVICES = "devices"
@@ -111,13 +100,9 @@ GWLAN = "gwlan"
 HTTP = "http"
 HTTPS = "https"
 IP = "ip"
-IP_EXTERNAL = "ip_external"
-IPS = "ips"
-ISO = "iso"
 LACP = "lacp"
 LAN = "lan"
 LED = "led"
-LEVEL = "level"
 LIGHT = "light"
 LIST = "list"
 LOAD_AVG = "load_avg"
@@ -125,23 +110,16 @@ MAC = "mac"
 MEDIA_BRIDGE = "media_bridge"
 METHOD = "method"
 MISC = "misc"
-MODEL = "model"
 NAME = "name"
 NETWORK = "network"
-NETWORK_STAT = "network_stat"
 NEXT = "next"
 NODE = "node"
 NO_SSL = "no_ssl"
 NUMBER = "number"
-PARENT = "parent"
 PARENTAL_CONTROL = "parental_control"
 PASSWORD = "password"  # noqa: S105
-PORT = "port"
-PORT_EXTERNAL = "port_external"
 PORT_FORWARDING = "port_forwarding"
 PORTS = "ports"
-PRODUCT_ID = "product_id"
-PROTOCOL = "protocol"
 RAM = "ram"
 ROUTER = "router"
 RX = "rx"
@@ -158,7 +136,6 @@ TIMESTAMP = "timestamp"
 TOTAL = "total"
 TX = "tx"
 TX_SPEED = "tx_speed"
-TYPE = "type"
 UNIQUE_ID = "unique_id"
 UNKNOWN = "unknown"
 USAGE = "usage"
@@ -226,9 +203,7 @@ CONNECTION_WIRED = "Wired"
 LABEL_LOAD_AVG = "Load Average"
 LABEL_RX = "Download"
 LABEL_SPEED = "Speed"
-LABEL_TEMPERATURE = "Temperature"
 LABEL_TX = "Upload"
-LABEL_WLAN = "Wireless"
 LABEL_WLAN_2GHZ = "2.4 GHz"
 LABEL_WLAN_5GHZ = "5 GHz"
 LABEL_WLAN_5GHZ2 = "5 GHz-2"
@@ -306,7 +281,6 @@ MODE_SENSORS = {
 
 SENSORS_AIMESH = [NUMBER, LIST]
 SENSORS_BOOTTIME = ["datetime", "uptime"]
-SENSORS_CHANGE = ["change"]
 SENSORS_CONNECTED_DEVICES = [
     NUMBER,
     DEVICES,
@@ -315,7 +289,6 @@ SENSORS_CONNECTED_DEVICES = [
     "gn_number",
 ]
 SENSORS_STATIC_DHCP = [NUMBER]
-SENSORS_CPU = [TOTAL, USED, USAGE]
 SENSORS_FIRMWARE = [STATE, "state_beta"]
 SENSORS_GWLAN = {
     "sync_node": "aimesh_sync",
@@ -334,8 +307,6 @@ SENSORS_GWLAN = {
     "crypto": "wpa_encryption",
 }
 SENSORS_LED = [STATE]
-SENSORS_MISC = [BOOTTIME]
-SENSORS_NETWORK = [RX, RX_SPEED, TX, TX_SPEED]
 SENSORS_OVPN_CLIENT = {
     "active": "active",
     "auth_read": "auth_read",
@@ -396,9 +367,7 @@ SENSORS_OVPN_SERVER = {
 
 SENSORS_PARENTAL_CONTROL = ["block_all", STATE]
 SENSORS_PORT_FORWARDING = [STATE]
-SENSORS_PORTS = [LAN, WAN]
 SENSORS_RAM = [FREE, TOTAL, USAGE, USED]
-SENSORS_SYSINFO = [f"{LOAD_AVG}_{sensor}" for sensor in LABELS_LOAD_AVG]
 SENSORS_WAN = {
     "dns": "dns",
     "expires": "expires",
@@ -508,9 +477,6 @@ CONF_LATEST_CONNECTED = "latest_connected"
 CONF_MODE = "mode"
 CONF_SPLIT_INTERVALS = "split_intervals"
 CONF_TRACK_DEVICES = "track_devices"
-CONF_UNITS = "units"
-CONF_UNITS_SPEED = "units_speed"
-CONF_UNITS_TRAFFIC = "units_traffic"
 
 # Defaults
 CONF_DEFAULT_CACHE_TIME = 5
@@ -539,8 +505,6 @@ CONF_DEFAULT_SCAN_INTERVAL = 30
 CONF_DEFAULT_SPLIT_INTERVALS = False
 CONF_DEFAULT_SSL = True
 CONF_DEFAULT_TRACK_DEVICES = True
-CONF_DEFAULT_UNITS_SPEED = UnitOfDataRate.MEGABITS_PER_SECOND
-CONF_DEFAULT_UNITS_TRAFFIC = UnitOfInformation.GIGABYTES
 CONF_DEFAULT_USERNAME = "admin"
 
 # Labels
@@ -601,27 +565,6 @@ CONF_REQ_RELOAD = [
 ]
 CONF_REQ_RELOAD.extend(CONF_INTERVALS)
 
-# Input values
-CONF_VALUES_DATA = [
-    UnitOfInformation.BITS,
-    UnitOfInformation.KILOBITS,
-    UnitOfInformation.MEGABITS,
-    UnitOfInformation.GIGABITS,
-    UnitOfInformation.BYTES,
-    UnitOfInformation.KILOBYTES,
-    UnitOfInformation.MEGABYTES,
-    UnitOfInformation.GIGABYTES,
-]
-CONF_VALUES_DATARATE = [
-    UnitOfDataRate.BITS_PER_SECOND,
-    UnitOfDataRate.KILOBITS_PER_SECOND,
-    UnitOfDataRate.MEGABITS_PER_SECOND,
-    UnitOfDataRate.GIGABITS_PER_SECOND,
-    UnitOfDataRate.BYTES_PER_SECOND,
-    UnitOfDataRate.KILOBYTES_PER_SECOND,
-    UnitOfDataRate.MEGABYTES_PER_SECOND,
-    UnitOfDataRate.GIGABYTES_PER_SECOND,
-]
 CONF_VALUES_MODE = [
     ROUTER,
     NODE,
@@ -631,82 +574,16 @@ CONF_VALUES_MODE = [
 
 # Defaults
 DEFAULT_DEVICE_NAME = "Unknown device"
-DEFAULT_HTTP = {NO_SSL: HTTP, SSL: HTTPS}
 DEFAULT_VERIFY_SSL = True
-
-# Simplified setup
-SIMPLE_SETUP_PARAMETERS = {
-    SSL: {
-        CONF_PORT: CONF_DEFAULT_PORTS[SSL],
-        CONF_VERIFY_SSL: DEFAULT_VERIFY_SSL,
-        CONF_CERT_PATH: "",
-    },
-    NO_SSL: {
-        CONF_PORT: CONF_DEFAULT_PORTS[NO_SSL],
-        CONF_VERIFY_SSL: DEFAULT_VERIFY_SSL,
-        CONF_CERT_PATH: "",
-    },
-}
-
-# Types of steps
-STEP_TYPE_COMPLETE = "complete"
-STEP_TYPE_SIMPLE = "simplified"
-
-# Types of results on actions
-RESULT_CONNECTION_REFUSED = "connection_refused"
-RESULT_ERROR = "error"
-RESULT_LOGIN_BLOCKED = "login_blocked"
-RESULT_SUCCESS = "success"
-RESULT_UNKNOWN = "unknown"
-RESULT_WRONG_CREDENTIALS = "wrong_credentials"
 
 # <-- CONFIGURATION
 
-# CONSTANTS & CONVERTERS -->
-
-CONVERT_SPEED = {
-    UnitOfDataRate.BITS_PER_SECOND: 1,
-    UnitOfDataRate.KILOBITS_PER_SECOND: 1024,
-    UnitOfDataRate.MEGABITS_PER_SECOND: 1048576,
-    UnitOfDataRate.GIGABITS_PER_SECOND: 1073741824,
-    UnitOfDataRate.BYTES_PER_SECOND: 8,
-    UnitOfDataRate.KILOBYTES_PER_SECOND: 8192,
-    UnitOfDataRate.MEGABYTES_PER_SECOND: 8388608,
-    UnitOfDataRate.GIGABYTES_PER_SECOND: 8589934592,
-}
-CONVERT_TRAFFIC = {
-    UnitOfInformation.BITS: 0.125,
-    UnitOfInformation.KILOBITS: 128,
-    UnitOfInformation.MEGABITS: 131072,
-    UnitOfInformation.GIGABITS: 134217728,
-    UnitOfInformation.BYTES: 1,
-    UnitOfInformation.KILOBYTES: 1024,
-    UnitOfInformation.MEGABYTES: 1048576,
-    UnitOfInformation.GIGABYTES: 1073741824,
-}
-
-# <-- CONSTANTS & CONVERTERS
-
 # MISC -->
-
-# Connection state
-CONNECTION_BLOCKED = "blocked"
-CONNECTION_CONNECTED = "connected"
-CONNECTION_DISCONNECTED = "disconnected"
-
-# Connection type
-CONNECTION_TYPE_2G = CONNECTION_2G
-CONNECTION_TYPE_5G = CONNECTION_5G
-CONNECTION_TYPE_5G2 = CONNECTION_5G2
-CONNECTION_TYPE_6G = CONNECTION_6G
-CONNECTION_TYPE_WIRED = CONNECTION_WIRED
-CONNECTION_TYPE_UNKNOWN = UNKNOWN
 
 # Device attributes
 DEVICE_ATTRIBUTE_CONNECTION_TIME = "connection_time"
 DEVICE_ATTRIBUTE_CONNECTION_TYPE = "connection_type"
 DEVICE_ATTRIBUTE_GUEST = "guest"
-DEVICE_ATTRIBUTE_GUEST_ID = "guest_id"
 DEVICE_ATTRIBUTE_INTERNET = "internet"
 DEVICE_ATTRIBUTE_INTERNET_MODE = "internet_mode"
 DEVICE_ATTRIBUTE_IP_TYPE = "ip_type"
@@ -714,17 +591,6 @@ DEVICE_ATTRIBUTE_LAST_ACTIVITY = "last_activity"
 DEVICE_ATTRIBUTE_RSSI = "rssi"
 DEVICE_ATTRIBUTE_RX_SPEED = RX_SPEED
 DEVICE_ATTRIBUTE_TX_SPEED = TX_SPEED
-DEVICE_ATTRIBUTES: list[str] = [
-    DEVICE_ATTRIBUTE_CONNECTION_TIME,
-    DEVICE_ATTRIBUTE_CONNECTION_TYPE,
-    DEVICE_ATTRIBUTE_GUEST,
-    DEVICE_ATTRIBUTE_INTERNET,
-    DEVICE_ATTRIBUTE_INTERNET_MODE,
-    DEVICE_ATTRIBUTE_IP_TYPE,
-    DEVICE_ATTRIBUTE_RSSI,
-    DEVICE_ATTRIBUTE_RX_SPEED,
-    DEVICE_ATTRIBUTE_TX_SPEED,
-]
 
 # Generate wireless networks
 NAME_GWLAN = {}
@@ -735,18 +601,6 @@ for i in NUMERIC_WLAN:
     # Guest WLAN
     for j in NUMERIC_GWLAN:
         NAME_GWLAN[f"{i}.{j}"] = f"Guest {CONNECTION_LIST[i]} {j}"
-
-SENSORS_PARAM: dict[str, dict[str, Any]] = {
-    "key": {},
-    "key_group": {},
-    NAME: {},
-    "icon": {},
-    "state_class": {},
-    "native_unit_of_measurement": {},
-    "factor": {},
-    "entity_registry_enabled_default": {},
-    "extra_state_attributes": {},
-}
 
 SENSORS_PARAM_NETWORK: dict[str, dict[str, Any]] = {
     RX: {
@@ -795,57 +649,29 @@ SENSORS_PARAM_NETWORK: dict[str, dict[str, Any]] = {
 
 # DIAGNOSTICS -->
 
-TO_REDACT: list[str] = [PASSWORD, CONF_UNIQUE_ID, CONF_USERNAME]
+TO_REDACT: list[str] = [
+    PASSWORD,
+    "radius_key",
+    CONF_UNIQUE_ID,
+    CONF_USERNAME,
+]
 TO_REDACT_DEV: list[str] = [ATTR_CONNECTIONS, ATTR_IDENTIFIERS]
-TO_REDACT_STATE: list[str] = ["WAN IP"]
+TO_REDACT_STATE: set[tuple[str, str]] = {
+    (Platform.SENSOR, BinarySensorDeviceClass.CONNECTIVITY)
+}
 TO_REDACT_ATTRS: list[str] = [
     CONF_DEVICES,
     PASSWORD,
     IP,
+    MAC,
     SSID,
     LIST,
     "private_key",
     "psk",
+    "radius_key",
 ]
 
 # <-- DIAGNOSTICS
-
-# SERVICES -->
-
-SERVICE_ALLOWED_ADJUST_GWLAN: dict[str, Callable | None] = {
-    "sync_node": safe_int,
-    "bw_enabled": safe_int,
-    "bw_dl": None,
-    "bw_ul": None,
-    "expire": None,
-    "closed": safe_int,
-    "lanaccess": safe_int,
-    SSID: None,
-}
-
-SERVICE_ALLOWED_ADJUST_WLAN: dict[str, Callable | None] = {
-    "closed": safe_int,
-    SSID: None,
-}
-
-SERVICE_ALLOWED_DEVICE_INTERNET_ACCCESS: list[str] = [
-    "block",
-    "disable",
-]
-
-SERVICE_ALLOWED_PORT_FORWARDING_ACTION: list[str] = [
-    "remove_ip",
-    "remove",
-    "set",
-]
-
-SERVICE_ALLOWED_PORT_FORWARDING_PROTOCOL: list[str] = [
-    "TCP",
-    "UDP",
-    "BOTH",
-]
-
-# <-- SERVICES
 
 # ICONS -->
 
@@ -1617,7 +1443,6 @@ INTERFACES = "interfaces"
 RESULT_ACCESS_ERROR = "access_error"
 RESULT_CANNOT_RESOLVE = "cannot_resolve"
 RESULT_CONNECTION_ERROR = "connection_error"
-RESULT_CONNECTION_REFUSED = "connection_refused"
 RESULT_ERROR = "error"
 RESULT_LOGIN_BLOCKED = "login_blocked"
 RESULT_SUCCESS = "success"
@@ -1632,7 +1457,6 @@ STEP_FIND = "find"
 STEP_FINISH = "finish"
 STEP_INTERFACES = "interfaces"
 STEP_INTERVALS = "intervals"
-STEP_NAME = "name"
 STEP_OPERATION = "operation"
 STEP_OPTIONS = "options"
 STEP_SECURITY = "security"

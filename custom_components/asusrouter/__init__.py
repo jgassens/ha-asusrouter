@@ -72,7 +72,7 @@ async def async_setup_entry(
 
     _LOGGER.debug("Setting up entry")
 
-    check_library_version()
+    await hass.async_add_executor_job(check_library_version)
 
     router = ARDevice(hass, config_entry)
     await router.setup()

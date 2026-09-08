@@ -9,6 +9,7 @@ from asusrouter.modules.homeassistant import convert_to_ha_state_bool
 from asusrouter.modules.state import AsusState
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
@@ -189,4 +190,4 @@ class ARBinaryEntity(AREntity):
             if not result:
                 _LOGGER.debug("State was not set!")
         except Exception as ex:  # noqa: BLE001
-            _LOGGER.error("Unable to set state with an exception: %s", ex)
+            raise HomeAssistantError(f"Unable to set state: {ex}") from ex

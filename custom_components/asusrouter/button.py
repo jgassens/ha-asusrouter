@@ -9,6 +9,7 @@ from asusrouter.modules.state import AsusState
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
@@ -157,7 +158,7 @@ class ARButton(ButtonEntity):
             if not result:
                 _LOGGER.debug("Didn't manage to press %s", state)
         except Exception as ex:  # noqa: BLE001
-            _LOGGER.error("Pressing %s caused an exception: %s", state, ex)
+            raise HomeAssistantError(f"Unable to press {state}: {ex}") from ex
 
 
 class ClientStaticDHCPReserveButton(ButtonEntity):

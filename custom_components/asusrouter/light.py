@@ -26,12 +26,6 @@ from .router import ARDevice
 
 _LOGGER = logging.getLogger(__name__)
 
-EFFECT = "effect"
-RGB_COLOR = "rgb_color"
-BRIGHTNESS = "brightness"
-COLOR_MODE = "color_mode"
-ZONE_ID = "zone_id"
-
 
 async def async_setup_entry(
     hass: HomeAssistant,

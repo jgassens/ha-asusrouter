@@ -19,11 +19,18 @@
           "ssl": "Використовувати SSL"
         }
       },
+      "reauth_confirm": {
+        "title": "Update credentials for {name}",
+        "description": "Enter the new credentials for your router.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      },
       "operation": {
         "title": "Режим роботи",
         "data": {
           "mode": "Режим роботи",
-          "enable_control": "Увімкнути контроль пристрою",
           "split_intervals": "Незалежне налаштування інтервалу оновлення сенсорів"
         }
       },
@@ -46,8 +53,6 @@
           "clients_in_attr": "Зберігати повний список клієнтів у атрибутах до connected devices сенсору",
           "client_filter": "Фільтрувати клієнтів",
           "client_filter_list": "Список клієнтів для фільтру (лише якщо фільтр увімкнено)",
-          "force_clients": "Примусово оновлювати список клієнтів",
-          "force_clients_waittime": "Час очікування (примусове оновлення -> перевірка) (секунд)",
           "latest_connected": "Кількість останніх підключених пристроїв для зберігання",
           "interval_devices": "Оновлення клієнтів / AiMesh",
           "consider_home": "Вважати клієнта 'вдома' протягом (після останнього значення 'online')",
@@ -79,9 +84,7 @@
       "interfaces": {
         "title": "Інтерфейси для відслідковування",
         "data": {
-          "interfaces": "Виберіть інтерфейси для відслідковування",
-          "units_speed": "Одиниці вимірювання швидкості",
-          "units_traffic": "Одиниці вимірювання трафіку"
+          "interfaces": "Виберіть інтерфейси для відслідковування"
         }
       },
       "events": {
@@ -105,20 +108,17 @@
     },
     "error": {
       "access_error": "Помилка доступу. Перевірте деталі в журналі",
-      "cannot_resolve_host": "Неможливо знайти ім'я хоста. Спробуйте використати IP адресу",
+      "cannot_resolve": "Неможливо знайти ім'я хоста. Спробуйте використати IP адресу",
       "connection_error": "Помилка підключення. Перевірти деталі в журналі подій",
-      "connection_refused": "З'єднання відхилено",
       "error": "Не вдалося підключитися",
       "login_blocked": "Вхід заблоковано пристроєм. Будь ласка, зачекайте",
-      "password_missing": "Пароль відсутній",
       "timeout": "Таймаут підключення",
       "unknown": "Невідома помилка",
       "wrong_credentials": "Неправильні облікові дані"
     },
     "abort": {
       "already_configured": "Пристрій вже налаштовано",
-      "no_serial": "Пристрій не надає серійний номер. Налаштування скасоване",
-      "not_router": "Пристрій не є роутером Asus. Налаштування неможливе"
+      "reauth_successful": "Re-authentication was successful"
     }
   },
   "options": {
@@ -133,8 +133,7 @@
           "interfaces": "Інтерфейси для відслідковування",
           "events": "Події Home Assistant",
           "security": "Налаштування безпеки",
-          "finish": "Зберегти і завершити",
-          "device": "Параметри ідентифікації та підключення"
+          "finish": "Зберегти і завершити"
         }
       },
       "credentials": {
@@ -151,7 +150,6 @@
         "title": "Режим роботи",
         "data": {
           "mode": "Режим роботи",
-          "enable_control": "Увімкнути контроль пристрою",
           "split_intervals": "Незалежне налаштування інтервалу оновлення сенсорів"
         }
       },
@@ -163,8 +161,6 @@
           "clients_in_attr": "Зберігати повний список клієнтів у атрибутах до connected devices сенсору",
           "client_filter": "Фільтрувати клієнтів",
           "client_filter_list": "Список клієнтів для фільтру (лише якщо фільтр увімкнено)",
-          "force_clients": "Примусово оновлювати список клієнтів",
-          "force_clients_waittime": "Час очікування (примусове оновлення -> перевірка) (секунд)",
           "latest_connected": "Кількість останніх підключених пристроїв для зберігання",
           "interval_devices": "Оновлення клієнтів / AiMesh",
           "consider_home": "Вважати клієнта 'вдома' протягом (після останнього значення 'online')",
@@ -196,9 +192,7 @@
       "interfaces": {
         "title": "Інтерфейси для відслідковування",
         "data": {
-          "interfaces": "Виберіть інтерфейси для відслідковування",
-          "units_speed": "Одиниці вимірювання швидкості",
-          "units_traffic": "Одиниці вимірювання трафіку"
+          "interfaces": "Виберіть інтерфейси для відслідковування"
         }
       },
       "events": {
@@ -223,10 +217,8 @@
     "error": {
       "access_error": "Помилка доступу. Перевірте деталі в журналі",
       "connection_error": "Помилка підключення. Перевірти деталі в журналі подій",
-      "connection_refused": "З'єднання відхилено",
       "error": "Не вдалося підключитися",
       "login_blocked": "Вхід заблоковано пристроєм. Будь ласка, зачекайте",
-      "not_confirmed": "Необхідне підтвердження",
       "timeout": "Таймаут підключення",
       "unknown": "Невідома помилка",
       "wrong_credentials": "Неправильні облікові дані"
@@ -256,6 +248,77 @@
           "description": "Оберіть пристрої для видалення з реєстру"
         }
       }
+    },
+    "set_static_dhcp_lease": {
+      "name": "Set static DHCP lease",
+      "description": "Create or update a static DHCP reservation on the selected router.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Router",
+          "description": "The AsusRouter config entry to change."
+        },
+        "mac": {
+          "name": "MAC address",
+          "description": "The client MAC address to reserve."
+        },
+        "ip": {
+          "name": "IP address",
+          "description": "The IPv4 address to reserve for the client."
+        },
+        "hostname": {
+          "name": "Hostname",
+          "description": "Optional hostname to store with the reservation."
+        },
+        "dns": {
+          "name": "DNS",
+          "description": "Optional DNS IPv4 address to store with the reservation."
+        }
+      }
+    },
+    "remove_static_dhcp_lease": {
+      "name": "Remove static DHCP lease",
+      "description": "Remove a static DHCP reservation from the selected router.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Router",
+          "description": "The AsusRouter config entry to change."
+        },
+        "mac": {
+          "name": "MAC address",
+          "description": "The client MAC address to remove from reservations."
+        }
+      }
+    },
+    "reserve_current_ip": {
+      "name": "Reserve current IP",
+      "description": "Reserve the current IP address for selected AsusRouter device trackers."
+    },
+    "refresh_static_dhcp_leases": {
+      "name": "Refresh static DHCP leases",
+      "description": "Refresh the router static DHCP reservation sensor.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Router",
+          "description": "The AsusRouter config entry to refresh."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_static_dhcp_ip": {
+      "message": "Invalid static DHCP IPv4 address: {ip}"
+    },
+    "invalid_static_dhcp_mac": {
+      "message": "Invalid static DHCP MAC address: {mac}"
+    },
+    "static_dhcp_duplicate_ip": {
+      "message": "IP address {ip} is already reserved for {mac}."
+    },
+    "static_dhcp_existing_reservation": {
+      "message": "{mac} is already reserved to {ip}. Use set_static_dhcp_lease to change it."
+    },
+    "static_dhcp_router_mode_required": {
+      "message": "Static DHCP leases can only be changed in router mode."
     }
   },
   "selector": {

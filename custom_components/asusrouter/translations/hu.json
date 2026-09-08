@@ -19,11 +19,18 @@
           "ssl": "SSL kapcsolat használata"
         }
       },
+      "reauth_confirm": {
+        "title": "Update credentials for {name}",
+        "description": "Enter the new credentials for your router.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      },
       "operation": {
         "title": "Üzemmód",
         "data": {
           "mode": "Eszköz mód",
-          "enable_control": "Eszközvezérlés engedélyezése",
           "split_intervals": "Érzékelőnkénti frissítési időközök engedélyezése"
         }
       },
@@ -46,8 +53,6 @@
           "clients_in_attr": "[NT] Store clients list in attributes of the connected devices sensor",
           "client_filter": "[NT] Filter clients",
           "client_filter_list": "[NT] List of clients to filter (only active if filter is enabled)",
-          "force_clients": "[NT] Force clients update",
-          "force_clients_waittime": "[NT] Wait time (force update -> check) (seconds)",
           "latest_connected": "A legutóbb csatlakoztatott eszközök tárolásának maximális száma",
           "interval_devices": "Eszközök / AiMesh frissítés",
           "consider_home": "Otthon van az eszköz (az utolsó „online” állapot utáni megállapítás)",
@@ -79,9 +84,7 @@
       "interfaces": {
         "title": "Interfészek a monitorozáshoz",
         "data": {
-          "interfaces": "Válassza ki a figyelni kívánt hálózati interfészeket",
-          "units_speed": "Sebesség mértékegységei",
-          "units_traffic": "Egységek a forgalom számára"
+          "interfaces": "Válassza ki a figyelni kívánt hálózati interfészeket"
         }
       },
       "events": {
@@ -105,20 +108,17 @@
     },
     "error": {
       "access_error": "[NT] Access error. Refer to the log for details",
-      "cannot_resolve_host": "Nem lehet sikerült hálózati nevévvel. Próbálja meg IP címmel",
+      "cannot_resolve": "Nem lehet sikerült hálózati nevévvel. Próbálja meg IP címmel",
       "connection_error": "[NT] Connection error. Refer to the log for details",
-      "connection_refused": "Kapcsolódás elutasítva",
       "error": "Nem sikerült csatlakozni",
       "login_blocked": "A bejelentkezést az eszköz blokkolja. Kérlek várjon",
-      "password_missing": "Hiányzó jelszó",
       "timeout": "[NT] Timeout error",
       "unknown": "Ismeretlen hiba",
       "wrong_credentials": "Nem megfelelő hitelesítő adatok"
     },
     "abort": {
       "already_configured": "Az eszköz már konfigurálva van",
-      "no_serial": "Ez a készülék nem közölt sorozatszámot. A felfedezés megszakadt",
-      "not_router": "Nem Asus router, az eszköz nem konfigurálható."
+      "reauth_successful": "Re-authentication was successful"
     }
   },
   "options": {
@@ -150,7 +150,6 @@
         "title": "Üzemmód",
         "data": {
           "mode": "Eszköz mód",
-          "enable_control": "Eszközvezérlés engedélyezése",
           "split_intervals": "Érzékelőnkénti frissítési időközök engedélyezése"
         }
       },
@@ -162,8 +161,6 @@
           "clients_in_attr": "[NT] Store clients list in attributes of the connected devices sensor",
           "client_filter": "[NT] Filter clients",
           "client_filter_list": "[NT] List of clients to filter (only active if filter is enabled)",
-          "force_clients": "[NT] Force clients update",
-          "force_clients_waittime": "[NT] Wait time (force update -> check) (seconds)",
           "latest_connected": "A legutóbb tárolandó csatlakoztatott eszközök száma",
           "interval_devices": "Eszközök / AiMesh frissítés",
           "consider_home": "Otthon van az eszköz (az utolsó „online” állapot utáni megállapítás)",
@@ -195,9 +192,7 @@
       "interfaces": {
         "title": "Interfészek a monitorozáshoz",
         "data": {
-          "interfaces": "Válassza ki a figyelni kívánt hálózati interfészeket",
-          "units_speed": "Sebesség mértékegységei",
-          "units_traffic": "Egységek a forgalom számára"
+          "interfaces": "Válassza ki a figyelni kívánt hálózati interfészeket"
         }
       },
       "events": {
@@ -222,10 +217,8 @@
     "error": {
       "access_error": "[NT] Access error. Refer to the log for details",
       "connection_error": "[NT] Connection error. Refer to the log for details",
-      "connection_refused": "Kapcsolódás elutasítva",
       "error": "Nem sikerült csatlakozni",
       "login_blocked": "A bejelentkezést az eszköz blokkolja. Kérlek várjon",
-      "not_confirmed": "Meg kell erősíteni",
       "timeout": "[NT] Timeout error",
       "unknown": "Ismeretlen hiba",
       "wrong_credentials": "Nem megfelelő hitelesítő adatok"
@@ -255,6 +248,77 @@
           "description": "Select device(s) to remove from the device registry"
         }
       }
+    },
+    "set_static_dhcp_lease": {
+      "name": "Set static DHCP lease",
+      "description": "Create or update a static DHCP reservation on the selected router.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Router",
+          "description": "The AsusRouter config entry to change."
+        },
+        "mac": {
+          "name": "MAC address",
+          "description": "The client MAC address to reserve."
+        },
+        "ip": {
+          "name": "IP address",
+          "description": "The IPv4 address to reserve for the client."
+        },
+        "hostname": {
+          "name": "Hostname",
+          "description": "Optional hostname to store with the reservation."
+        },
+        "dns": {
+          "name": "DNS",
+          "description": "Optional DNS IPv4 address to store with the reservation."
+        }
+      }
+    },
+    "remove_static_dhcp_lease": {
+      "name": "Remove static DHCP lease",
+      "description": "Remove a static DHCP reservation from the selected router.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Router",
+          "description": "The AsusRouter config entry to change."
+        },
+        "mac": {
+          "name": "MAC address",
+          "description": "The client MAC address to remove from reservations."
+        }
+      }
+    },
+    "reserve_current_ip": {
+      "name": "Reserve current IP",
+      "description": "Reserve the current IP address for selected AsusRouter device trackers."
+    },
+    "refresh_static_dhcp_leases": {
+      "name": "Refresh static DHCP leases",
+      "description": "Refresh the router static DHCP reservation sensor.",
+      "fields": {
+        "config_entry_id": {
+          "name": "Router",
+          "description": "The AsusRouter config entry to refresh."
+        }
+      }
+    }
+  },
+  "exceptions": {
+    "invalid_static_dhcp_ip": {
+      "message": "Invalid static DHCP IPv4 address: {ip}"
+    },
+    "invalid_static_dhcp_mac": {
+      "message": "Invalid static DHCP MAC address: {mac}"
+    },
+    "static_dhcp_duplicate_ip": {
+      "message": "IP address {ip} is already reserved for {mac}."
+    },
+    "static_dhcp_existing_reservation": {
+      "message": "{mac} is already reserved to {ip}. Use set_static_dhcp_lease to change it."
+    },
+    "static_dhcp_router_mode_required": {
+      "message": "Static DHCP leases can only be changed in router mode."
     }
   },
   "selector": {

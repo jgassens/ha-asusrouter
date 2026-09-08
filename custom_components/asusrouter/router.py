@@ -7,7 +7,7 @@ from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime, timedelta
 from ipaddress import IPv4Address
 import logging
-from typing import Any
+from typing import Any, cast
 
 from asusrouter.error import AsusRouterAccessError, AsusRouterError
 from asusrouter.modules.client import AsusClientConnectionWlan
@@ -135,7 +135,7 @@ class ARSensorHandler:
 
         # Sensors
         self._clients_number: int = 0
-        self._clients_list: list[dict[str, Any]] | None = []
+        self._clients_list: list[dict[str, Any]] | None = None
         self._latest_connected: datetime | None = None
         self._latest_connected_list: list[dict[str, Any]] = []
         self._aimesh_number: int = 0
@@ -346,7 +346,7 @@ class ARDevice:
             CONF_CREATE_DEVICES,
             CONF_DEFAULT_CREATE_DEVICES,
         )
-        self._pc_rules: dict[str, Any] = {}
+        self._pc_rules: dict[str, ParentalControlRule] = {}
         self._pc_rule_lock = asyncio.Lock()
         self._static_dhcp_lock = asyncio.Lock()
         self._static_dhcp_leases: list[dict[str, str]] = []
@@ -380,7 +380,7 @@ class ARDevice:
         _LOGGER.debug("Bridge connected")
 
         # Write the identity
-        self._identity = self.bridge.identity
+        self._identity = cast(AsusDevice, self.bridge.identity)
         self._mac = format_mac(self._identity.mac)
 
         # Use device model as the default device name if name not set
@@ -1384,7 +1384,7 @@ class ARDevice:
 
     def update_options(
         self,
-        new_options: dict,
+        new_options: dict[str, Any],
     ) -> bool:
         """Update router options."""
 
