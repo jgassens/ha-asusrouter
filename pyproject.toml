@@ -1,6 +1,6 @@
 [project]
 name            = "ha-asusrouter"
-version         = "1.1.0"
+version         = "1.2.0"
 license         = "Apache-2.0"
 requires-python = ">=3.14.2"
 readme          = "README.md"
@@ -20,7 +20,7 @@ classifiers     = [
 ]
 dependencies    = [
     # Pin the companion library's stable API to the exact tested commit.
-    "asusrouter@git+https://github.com/jgassens/asusrouter.git@4a4f37da7ebc8be2281a6ede1265aa0e82a9d16e",
+    "asusrouter@git+https://github.com/jgassens/asusrouter.git@4785001fb6398522adbfb6616919ef5fb26cc86f",
     "homeassistant==2026.7.4",
 ]
 

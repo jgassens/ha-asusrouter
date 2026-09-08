@@ -2,16 +2,25 @@
 
 from __future__ import annotations
 
+from importlib.metadata import PackageNotFoundError, version
 import logging
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EVENT_HOMEASSISTANT_STOP
 from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import ConfigEntryError
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers.device_registry import DeviceEntry
 from homeassistant.helpers.typing import ConfigType
+from packaging.version import InvalidVersion, Version
 
-from .const import ASUSROUTER, DOMAIN, PLATFORMS, STOP_LISTENER
+from .const import (
+    ASUSROUTER,
+    DOMAIN,
+    MIN_LIBRARY_VERSION,
+    PLATFORMS,
+    STOP_LISTENER,
+)
 from .router import ARDevice
 from .services import async_setup_services
 
@@ -30,6 +39,31 @@ async def async_setup(
     return True
 
 
+def check_library_version() -> None:
+    """Fail setup clearly when the installed asusrouter library is too old."""
+
+    try:
+        installed = version("asusrouter")
+    except PackageNotFoundError as ex:
+        raise ConfigEntryError(
+            "The asusrouter library is not installed; restart Home Assistant "
+            "so its requirements are installed"
+        ) from ex
+    try:
+        too_old = Version(installed) < Version(MIN_LIBRARY_VERSION)
+    except InvalidVersion as ex:
+        raise ConfigEntryError(
+            f"The installed asusrouter library reports an unreadable version "
+            f"({installed}); {MIN_LIBRARY_VERSION} or newer is required"
+        ) from ex
+    if too_old:
+        raise ConfigEntryError(
+            f"asusrouter {installed} is installed but "
+            f"{MIN_LIBRARY_VERSION} or newer is required; restart Home "
+            "Assistant so the updated library is installed"
+        )
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     config_entry: ConfigEntry,
@@ -37,6 +71,8 @@ async def async_setup_entry(
     """Set up AsusRouter platform."""
 
     _LOGGER.debug("Setting up entry")
+
+    check_library_version()
 
     router = ARDevice(hass, config_entry)
     await router.setup()
