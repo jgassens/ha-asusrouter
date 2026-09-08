@@ -847,8 +847,15 @@ class ARBridge:
         if mac is None:
             return None
 
+        try:
+            normalized_mac = format_mac(str(mac)).upper()
+        except ValueError as ex:
+            raise ServiceValidationError(
+                "Invalid parental-control device MAC address"
+            ) from ex
+
         return ParentalControlRule(
-            mac=mac.upper(),
+            mac=normalized_mac,
             name=device.get("name") or "",
             type=rule_type,
         )
@@ -883,14 +890,14 @@ class ARBridge:
         """
 
         rule_type = {
-            "disable": PCRuleType.DISABLE,
             "allow": PCRuleType.DISABLE,
             "block": PCRuleType.BLOCK,
             "remove": PCRuleType.REMOVE,
         }.get(state)
         if rule_type is None:
-            _LOGGER.warning("Unknown parental control state: %s", state)
-            return ServiceResult(success=False, needed_time=None, last_id=None)
+            raise ServiceValidationError(
+                f"Unknown parental control state: {state}"
+            )
 
         rules_to_set = [
             rule

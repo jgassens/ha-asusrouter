@@ -21,6 +21,7 @@ from asusrouter.modules.parental_control import (
 from asusrouter.modules.service import ServiceResult
 from homeassistant.const import Platform
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
+from homeassistant.helpers.device_registry import format_mac
 import pytest
 import voluptuous as vol
 
@@ -30,6 +31,7 @@ from custom_components.asusrouter.router import ARDevice
 from custom_components.asusrouter.services import (
     DEVICE_INTERNET_ACCESS_SCHEMA,
     SERVICE_DEVICE_INTERNET_ACCESS,
+    _client_entity_data,
     _internet_access_entity_data,
     _reload_parental_control_switches,
     async_setup_services,
@@ -123,11 +125,41 @@ async def test_pc_rule_remove_drops_only_the_named_rule() -> None:
 
     result = await bridge.async_pc_rule(
         state="remove",
-        devices=[{"mac": "aa:bb:cc:dd:ee:ff"}],
+        devices=[{"mac": "AA-BB-CC-DD-EE-FF"}],
     )
     assert result.success is True
 
     assert _written_macs(bridge) == keep.mac
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "mac",
+    [
+        "AA:BB:CC:DD:EE:FF",
+        "AA-BB-CC-DD-EE-FF",
+        "AABBCCDDEEFF",
+    ],
+)
+async def test_pc_rule_mac_forms_replace_existing_rule(mac: str) -> None:
+    """Every accepted MAC form should key the same router rule."""
+
+    existing = ParentalControlRule(
+        mac="AA:BB:CC:DD:EE:FF", name="Old", type=PCRuleType.DISABLE
+    )
+    bridge = _bridge(True, rules={existing.mac: existing})
+
+    result = await bridge.async_pc_rule(
+        state="block", devices=[{"mac": mac, "name": "New"}]
+    )
+
+    assert result.success is True
+    rules = _read_written_rules(
+        bridge.api.async_run_service_result.await_args.kwargs["arguments"]
+    )
+    assert list(rules) == [existing.mac]
+    assert rules[existing.mac].name == "New"
+    assert rules[existing.mac].type is PCRuleType.BLOCK
 
 
 @pytest.mark.asyncio
@@ -155,6 +187,23 @@ async def test_pc_rule_reports_router_write_failure() -> None:
         devices=[{"mac": "00:11:22:33:44:55"}],
     )
     assert result.success is False
+
+
+@pytest.mark.asyncio
+async def test_pc_rule_rejects_unknown_state_before_router_calls() -> None:
+    """An unknown state should fail without router round-trips."""
+
+    bridge = _bridge()
+
+    with pytest.raises(ServiceValidationError, match="Unknown.*pause"):
+        await bridge.async_pc_rule(
+            state="pause",
+            devices=[{"mac": "AA:BB:CC:DD:EE:FF"}],
+        )
+
+    bridge.api.async_get_parental_control_capabilities.assert_not_awaited()
+    bridge.api.async_get_data.assert_not_awaited()
+    bridge.api.async_run_service_result.assert_not_awaited()
 
 
 @pytest.mark.asyncio
@@ -248,7 +297,7 @@ def _router(bridge: ARBridge | None = None) -> Mock:
     router.mode = ROUTER
     router.mac = "24:4b:fe:f5:ee:20"
     router.pc_rules = {}
-    router._static_dhcp_mac.side_effect = lambda mac: str(mac).lower()
+    router._static_dhcp_mac.side_effect = lambda mac: format_mac(str(mac))
     router._pc_switch_reload_lock = asyncio.Lock()
     router._pc_rule_lock = asyncio.Lock()
 
@@ -268,7 +317,7 @@ def _router(bridge: ARBridge | None = None) -> Mock:
         *, state: str, devices: list[dict[str, str]]
     ) -> ServiceResult:
         for device in devices:
-            mac = str(device["mac"]).lower()
+            mac = format_mac(str(device["mac"]))
             if state == "remove":
                 router.pc_rules.pop(mac, None)
                 continue
@@ -311,10 +360,12 @@ async def test_service_routes_direct_devices_to_only_router() -> None:
     await async_setup_services(hass)
     handler = handlers[SERVICE_DEVICE_INTERNET_ACCESS]
     call = Mock(
-        data={
-            "devices": [{"mac": "AA:BB:CC:DD:EE:FF", "name": "Console"}],
-            "state": "block",
-        }
+        data=DEVICE_INTERNET_ACCESS_SCHEMA(
+            {
+                "devices": [{"mac": "AA-BB-CC-DD-EE-FF", "name": "Console"}],
+                "state": "block",
+            }
+        )
     )
 
     with patch(
@@ -325,12 +376,12 @@ async def test_service_routes_direct_devices_to_only_router() -> None:
 
     router.bridge.async_pc_rule.assert_awaited_once_with(
         state="block",
-        devices=[{"mac": "AA:BB:CC:DD:EE:FF", "name": "Console"}],
+        devices=[{"mac": "aa:bb:cc:dd:ee:ff", "name": "Console"}],
     )
     router.update_pc_rules.assert_awaited_once()
     router.async_set_internet_access.assert_awaited_once_with(
         state="block",
-        devices=[{"mac": "AA:BB:CC:DD:EE:FF", "name": "Console"}],
+        devices=[{"mac": "aa:bb:cc:dd:ee:ff", "name": "Console"}],
     )
 
 
@@ -686,6 +737,124 @@ async def test_entity_data_rejects_malformed_capabilities() -> None:
         pytest.raises(ServiceValidationError, match="malformed"),
     ):
         _internet_access_entity_data(hass, "device_tracker.console")
+
+
+@pytest.mark.parametrize(
+    ("name", "expected_name"),
+    [
+        ("kid>extra", "kidextra"),
+        ("kid>extra\n" + "x" * 40, "kidextra" + "x" * 24),
+        ("kid&#60extra&#62", "kidextra"),
+    ],
+)
+def test_entity_data_sanitizes_discovered_name_and_mac(
+    caplog: pytest.LogCaptureFixture,
+    name: str,
+    expected_name: str,
+) -> None:
+    """Tracker-derived values should be safe and canonical at the boundary."""
+
+    router = _router()
+    client = Mock()
+    client.name = name
+    client.ip_address = "192.168.50.10"
+    router.devices = {"aa:bb:cc:dd:ee:ff": client}
+    hass, _handlers = _service_hass(router)
+    hass.states.get.return_value = None
+    entry = Mock(
+        domain="device_tracker",
+        platform=DOMAIN,
+        config_entry_id="router-1",
+        capabilities={"mac": "AA-BB-CC-DD-EE-FF"},
+    )
+    registry = Mock()
+    registry.async_get.return_value = entry
+
+    with (
+        patch(
+            "custom_components.asusrouter.services.er.async_get",
+            return_value=registry,
+        ),
+        caplog.at_level(logging.DEBUG),
+    ):
+        resolved_router, device = _internet_access_entity_data(
+            hass, "device_tracker.console"
+        )
+
+    assert resolved_router is router
+    assert device == {
+        "mac": "aa:bb:cc:dd:ee:ff",
+        "name": expected_name,
+    }
+    assert "Sanitized parental-control device name" in caplog.text
+    assert name not in caplog.text
+
+
+def test_client_entity_data_rejects_non_asusrouter_tracker() -> None:
+    """All entity-backed services should enforce the tracker platform."""
+
+    router = _router()
+    hass, _handlers = _service_hass(router)
+    registry = Mock()
+    registry.async_get.return_value = Mock(
+        domain="sensor",
+        platform="other",
+        config_entry_id="router-1",
+    )
+
+    with (
+        patch(
+            "custom_components.asusrouter.services.er.async_get",
+            return_value=registry,
+        ),
+        pytest.raises(ServiceValidationError, match="not an AsusRouter"),
+    ):
+        _client_entity_data(hass, "sensor.console")
+
+
+@pytest.mark.asyncio
+async def test_multi_router_applies_all_before_reporting_failures() -> None:
+    """A failed router should not prevent later router updates."""
+
+    failed_router = _router()
+    successful_router = _router()
+    failure = OSError("offline")
+    failed_router.async_set_internet_access = AsyncMock(side_effect=failure)
+    successful_router.async_set_internet_access = AsyncMock()
+    hass, handlers = _service_hass(failed_router)
+    hass.data[DOMAIN]["router-2"] = {ASUSROUTER: successful_router}
+    await async_setup_services(hass)
+    handler = handlers[SERVICE_DEVICE_INTERNET_ACCESS]
+    devices = {
+        "device_tracker.first": (
+            failed_router,
+            {"mac": "00:11:22:33:44:55", "name": "First"},
+        ),
+        "device_tracker.second": (
+            successful_router,
+            {"mac": "AA:BB:CC:DD:EE:FF", "name": "Second"},
+        ),
+    }
+
+    with (
+        patch(
+            "custom_components.asusrouter.services._get_entity_ids",
+            return_value=list(devices),
+        ),
+        patch(
+            "custom_components.asusrouter.services."
+            "_internet_access_entity_data",
+            side_effect=lambda _hass, entity_id: devices[entity_id],
+        ),
+        pytest.raises(HomeAssistantError) as raised,
+    ):
+        await handler(Mock(data={"state": "block"}))
+
+    assert "succeeded: router-2" in str(raised.value)
+    assert "failed: router-1 (offline)" in str(raised.value)
+    assert raised.value.__cause__ is failure
+    failed_router.async_set_internet_access.assert_awaited_once()
+    successful_router.async_set_internet_access.assert_awaited_once()
 
 
 def _read_written_rules(arguments: dict[str, str]) -> dict:

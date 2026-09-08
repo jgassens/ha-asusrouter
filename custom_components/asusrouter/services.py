@@ -6,6 +6,7 @@ from ipaddress import IPv4Address
 import logging
 import re
 from typing import Any, cast
+import unicodedata
 
 from asusrouter.error import AsusRouterError
 from homeassistant.const import ATTR_ENTITY_ID, Platform
@@ -16,6 +17,7 @@ from homeassistant.helpers import (
     entity_registry as er,
     target as target_helpers,
 )
+from homeassistant.helpers.device_registry import format_mac
 import voluptuous as vol
 
 from .client import ARClient
@@ -42,6 +44,8 @@ SERVICE_SET_STATIC_DHCP_LEASE = "set_static_dhcp_lease"
 MAC_ADDRESS = re.compile(
     r"^(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$|^[0-9A-Fa-f]{12}$"
 )
+PC_NAME_MAX_LENGTH = 32
+PC_NAME_DELIMITERS = ("<", ">", "&#60", "&#62")
 
 
 def _strip(value: Any) -> str:
@@ -59,7 +63,7 @@ def _mac_address(value: Any) -> str:
     normalized = _strip(value)
     if not MAC_ADDRESS.match(normalized):
         raise vol.Invalid("expected MAC address")
-    return normalized
+    return format_mac(normalized)
 
 
 def _ipv4_address(value: Any) -> str:
@@ -78,6 +82,43 @@ def _optional_string(value: Any) -> str:
     if value is None:
         return ""
     return str(value).strip()
+
+
+def _parental_control_name(value: Any) -> str:
+    """Validate a directly supplied parental-control device name."""
+
+    raw_name = "" if value is None else str(value)
+    name = raw_name.strip()
+    if len(name) > PC_NAME_MAX_LENGTH:
+        raise ServiceValidationError(
+            f"Device name must be at most {PC_NAME_MAX_LENGTH} characters"
+        )
+    if any(delimiter in raw_name for delimiter in PC_NAME_DELIMITERS) or any(
+        unicodedata.category(character) == "Cc" for character in raw_name
+    ):
+        raise ServiceValidationError(
+            "Device name cannot contain delimiters or control characters"
+        )
+    return name
+
+
+def _sanitize_parental_control_name(value: Any, entity_id: str) -> str:
+    """Sanitize a router-discovered parental-control device name."""
+
+    name = "" if value is None else str(value)
+    sanitized = name.strip()
+    for delimiter in PC_NAME_DELIMITERS:
+        sanitized = sanitized.replace(delimiter, "")
+    sanitized = "".join(
+        character
+        for character in sanitized
+        if unicodedata.category(character) != "Cc"
+    )[:PC_NAME_MAX_LENGTH]
+    if sanitized != name:
+        _LOGGER.debug(
+            "Sanitized parental-control device name for %s", entity_id
+        )
+    return sanitized
 
 
 def _optional_ipv4_address(value: Any) -> str:
@@ -165,7 +206,7 @@ DEVICE_INTERNET_ACCESS_SCHEMA = vol.Schema(
                 vol.Schema(
                     {
                         vol.Required(MAC): _mac_address,
-                        vol.Optional(ATTR_NAME): _optional_string,
+                        vol.Optional(ATTR_NAME): _parental_control_name,
                     }
                 )
             ],
@@ -181,7 +222,7 @@ def _get_router(hass: HomeAssistant, config_entry_id: str) -> ARDevice:
 
     router_data = hass.data.get(DOMAIN, {}).get(config_entry_id)
     if not router_data or ASUSROUTER not in router_data:
-        raise HomeAssistantError(
+        raise ServiceValidationError(
             f"AsusRouter config entry is not loaded: {config_entry_id}"
         )
 
@@ -222,11 +263,11 @@ def _get_entity_ids(hass: HomeAssistant, call: ServiceCall) -> list[str]:
     return sorted(entity_ids)
 
 
-def _internet_access_entity_data(
+def _device_tracker_entity_data(
     hass: HomeAssistant,
     entity_id: str,
-) -> tuple[ARDevice, dict[str, str]]:
-    """Get router and parental-control data from a device tracker."""
+) -> tuple[ARDevice, str, str]:
+    """Resolve a router, MAC, and name from an AsusRouter tracker."""
 
     registry = er.async_get(hass)
     entry = registry.async_get(entity_id)
@@ -244,9 +285,9 @@ def _internet_access_entity_data(
     router = _get_router(hass, entry.config_entry_id)
     _require_router_mode(router)
 
-    capabilities = entry.capabilities or {}
     state = hass.states.get(entity_id)
     try:
+        capabilities = entry.capabilities or {}
         mac = capabilities.get(MAC)
         if mac is None and state is not None:
             mac = state.attributes.get(MAC)
@@ -259,8 +300,8 @@ def _internet_access_entity_data(
             f"Device tracker has no MAC address: {entity_id}"
         )
 
-    mac = router._static_dhcp_mac(mac)
     try:
+        mac = format_mac(str(mac))
         name = _get_client_field(router, mac, ATTR_NAME)
         if name is None:
             name = capabilities.get(ATTR_NAME)
@@ -268,12 +309,25 @@ def _internet_access_entity_data(
             name = state.attributes.get("host_name") or state.attributes.get(
                 "friendly_name"
             )
-    except (AttributeError, TypeError) as ex:
+    except (AttributeError, TypeError, ValueError) as ex:
         raise ServiceValidationError(
             f"Device tracker data is malformed: {entity_id}"
         ) from ex
 
-    return router, {MAC: mac, ATTR_NAME: _optional_string(name)}
+    return router, mac, _optional_string(name)
+
+
+def _internet_access_entity_data(
+    hass: HomeAssistant,
+    entity_id: str,
+) -> tuple[ARDevice, dict[str, str]]:
+    """Get router and parental-control data from a device tracker."""
+
+    router, mac, name = _device_tracker_entity_data(hass, entity_id)
+    return router, {
+        MAC: mac,
+        ATTR_NAME: _sanitize_parental_control_name(name, entity_id),
+    }
 
 
 def _direct_device_router(
@@ -384,53 +438,50 @@ def _client_entity_data(
 ) -> tuple[ARDevice, str, str, str | None]:
     """Get router, MAC, current IP, and hostname from a device tracker."""
 
-    registry = er.async_get(hass)
-    entry = registry.async_get(entity_id)
-    if entry is None:
-        raise ServiceValidationError(f"Entity not found: {entity_id}")
-    if entry.config_entry_id is None:
-        raise ServiceValidationError(
-            f"Entity is not tied to a config entry: {entity_id}"
-        )
-
-    router = _get_router(hass, entry.config_entry_id)
-    _require_router_mode(router)
-
-    capabilities = entry.capabilities or {}
-    mac = capabilities.get(MAC)
-    if mac is None:
-        state = hass.states.get(entity_id)
-        mac = state.attributes.get(MAC) if state is not None else None
-    if mac is None:
-        raise ServiceValidationError(
-            f"Device tracker has no MAC address: {entity_id}"
-        )
-
+    router, mac, hostname = _device_tracker_entity_data(hass, entity_id)
     state = hass.states.get(entity_id)
-    ip = _get_client_field(router, mac, "ip")
-    if ip is None and state is not None:
-        ip = state.attributes.get(IP) or state.attributes.get("ip_address")
+    try:
+        ip = _get_client_field(router, mac, "ip")
+        if ip is None and state is not None:
+            ip = state.attributes.get(IP) or state.attributes.get("ip_address")
+    except (AttributeError, TypeError) as ex:
+        raise ServiceValidationError(
+            f"Device tracker data is malformed: {entity_id}"
+        ) from ex
     if ip is None:
         raise ServiceValidationError(
             f"Device tracker has no current IP address: {entity_id}"
         )
 
-    hostname = _get_client_field(router, mac, "name")
-    if hostname is None:
-        hostname = capabilities.get("name")
-    if hostname is None and state is not None:
-        hostname = state.attributes.get("host_name") or state.attributes.get(
-            "friendly_name"
-        )
-
     return router, mac, ip, hostname
 
 
-async def _async_device_internet_access(
+def _router_service_name(hass: HomeAssistant, router: ARDevice) -> str:
+    """Return the config entry ID associated with a router."""
+
+    for config_entry_id, data in hass.data.get(DOMAIN, {}).items():
+        if data.get(ASUSROUTER) is router:
+            return str(config_entry_id)
+    return "unknown"
+
+
+async def _async_apply_internet_access(
+    router: ARDevice,
+    state: str,
+    devices: list[dict[str, str]],
+) -> None:
+    """Apply and finish an internet-access update on one router."""
+
+    await router.async_set_internet_access(state=state, devices=devices)
+    if state == "remove":
+        await _reload_parental_control_switches(router, devices)
+
+
+def _internet_access_targets(
     hass: HomeAssistant,
     call: ServiceCall,
-) -> None:
-    """Change internet access for one or more router clients."""
+) -> dict[ARDevice, list[dict[str, str]]]:
+    """Group service targets by their router."""
 
     router_devices: dict[ARDevice, list[dict[str, str]]] = {}
     for entity_id in _get_entity_ids(hass, call):
@@ -448,20 +499,46 @@ async def _async_device_internet_access(
         raise ServiceValidationError(
             "At least one AsusRouter device tracker or device is required"
         )
+    return router_devices
 
+
+async def _async_device_internet_access(
+    hass: HomeAssistant,
+    call: ServiceCall,
+) -> None:
+    """Change internet access for one or more router clients."""
+
+    router_devices = _internet_access_targets(hass, call)
+    succeeded: list[str] = []
+    failed: list[tuple[str, Exception]] = []
     for router, devices in router_devices.items():
+        router_name = _router_service_name(hass, router)
         try:
-            await router.async_set_internet_access(
-                state=call.data[ATTR_STATE],
-                devices=devices,
+            await _async_apply_internet_access(
+                router,
+                call.data[ATTR_STATE],
+                devices,
             )
+        except ServiceValidationError as ex:
+            if len(router_devices) == 1:
+                raise
+            failed.append((router_name, ex))
         except (AsusRouterError, OSError) as ex:
-            raise HomeAssistantError(
-                f"Unable to change device internet access: {ex}"
-            ) from ex
+            failed.append((router_name, ex))
+        except HomeAssistantError as ex:
+            failed.append((router_name, ex))
+        else:
+            succeeded.append(router_name)
 
-        if call.data[ATTR_STATE] == "remove":
-            await _reload_parental_control_switches(router, devices)
+    if failed:
+        succeeded_names = ", ".join(succeeded) or "none"
+        failed_names = ", ".join(
+            f"{router_name} ({error})" for router_name, error in failed
+        )
+        raise HomeAssistantError(
+            "Unable to change device internet access on all routers; "
+            f"succeeded: {succeeded_names}; failed: {failed_names}"
+        ) from failed[0][1]
 
 
 async def async_setup_services(hass: HomeAssistant) -> None:
