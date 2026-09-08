@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 import logging
 import socket
 from typing import Any
@@ -411,6 +412,25 @@ def _create_form_credentials(
     return vol.Schema(schema)
 
 
+def _create_form_reauth(
+    user_input: dict[str, Any] | None = None,
+) -> vol.Schema:
+    """Create a form for the reauthentication step."""
+
+    if user_input is None:
+        user_input = {}
+
+    return vol.Schema(
+        {
+            vol.Required(
+                CONF_USERNAME,
+                default=user_input.get(CONF_USERNAME, CONF_DEFAULT_USERNAME),
+            ): cv.string,
+            vol.Required(CONF_PASSWORD): cv.string,
+        }
+    )
+
+
 def _create_form_operation(
     user_input: dict[str, Any] | None = None,
     mode: str = CONF_DEFAULT_MODE,
@@ -688,6 +708,49 @@ class ARFlowHandler(ConfigFlow, domain=DOMAIN):
         """Flow initiated by user."""
 
         return await self.async_step_find(user_input)
+
+    async def async_step_reauth(
+        self, entry_data: Mapping[str, Any]
+    ) -> FlowResult:
+        """Handle reauthentication for an existing config entry."""
+
+        self._configs = dict(entry_data)
+        return await self.async_step_reauth_confirm()
+
+    async def async_step_reauth_confirm(
+        self,
+        user_input: dict[str, Any] | None = None,
+    ) -> FlowResult:
+        """Validate and save replacement credentials."""
+
+        errors = {}
+        entry = self._get_reauth_entry()
+
+        if user_input is not None:
+            candidate_options = dict(entry.options)
+            candidate_options.update(user_input)
+            result = await _async_check_connection(
+                self.hass, dict(entry.data), candidate_options
+            )
+            if ERRORS in result:
+                errors[BASE] = result[ERRORS]
+            else:
+                candidate_options.update(result[CONFIGS])
+                return self.async_update_reload_and_abort(
+                    entry, options=candidate_options
+                )
+        else:
+            user_input = {
+                CONF_USERNAME: entry.options.get(
+                    CONF_USERNAME, CONF_DEFAULT_USERNAME
+                )
+            }
+
+        return self.async_show_form(
+            step_id="reauth_confirm",
+            data_schema=_create_form_reauth(user_input),
+            errors=errors,
+        )
 
     # Find the device
     async def async_step_find(
@@ -1004,16 +1067,19 @@ class AROptionsFlowHandler(OptionsFlow):
                 or user_input[CONF_PORT] != self._options[CONF_PORT]
                 or user_input[CONF_SSL] != self._options[CONF_SSL]
             ):
-                self._options.update(user_input)
+                candidate_options = self._options.copy()
+                candidate_options.update(user_input)
                 result = await _async_check_connection(
-                    self.hass, self._configs, self._options
+                    self.hass, self._configs, candidate_options
                 )
                 if ERRORS in result:
                     errors[BASE] = result[ERRORS]
                 else:
+                    self._options.update(user_input)
                     self._options.update(result[CONFIGS])
                     return await self.async_step_options()
-            return await self.async_step_options()
+            else:
+                return await self.async_step_options()
 
         if not user_input:
             user_input = self._options.copy()

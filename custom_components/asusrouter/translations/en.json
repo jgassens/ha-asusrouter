@@ -19,6 +19,14 @@
           "ssl": "Use SSL connection"
         }
       },
+      "reauth_confirm": {
+        "title": "Update credentials for {name}",
+        "description": "Enter the new credentials for your router.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      },
       "operation": {
         "title": "Operation mode",
         "data": {
@@ -118,7 +126,8 @@
     "abort": {
       "already_configured": "Device is already configured",
       "no_serial": "This device does not provide serial number. Discovery aborted",
-      "not_router": "Not an Asus router. Cannot be configured"
+      "not_router": "Not an Asus router. Cannot be configured",
+      "reauth_successful": "Re-authentication was successful"
     }
   },
   "options": {

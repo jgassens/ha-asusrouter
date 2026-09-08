@@ -9,7 +9,7 @@ from ipaddress import IPv4Address
 import logging
 from typing import Any
 
-from asusrouter.error import AsusRouterError
+from asusrouter.error import AsusRouterAccessError, AsusRouterError
 from asusrouter.modules.client import AsusClientConnectionWlan
 from asusrouter.modules.connection import ConnectionState, ConnectionType
 from asusrouter.modules.identity import AsusDevice
@@ -30,6 +30,7 @@ from homeassistant.core import (
     callback,
 )
 from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
     ConfigEntryNotReady,
     HomeAssistantError,
     ServiceValidationError,
@@ -370,6 +371,8 @@ class ARDevice:
         # Connect & check connection
         try:
             await self.bridge.async_connect()
+        except AsusRouterAccessError as ex:
+            raise ConfigEntryAuthFailed from ex
         except (OSError, AsusRouterError) as ex:
             raise ConfigEntryNotReady from ex
         if not self.bridge.connected:
