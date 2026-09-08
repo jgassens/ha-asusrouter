@@ -39,7 +39,16 @@ async def test_diagnostics_redact_router_and_client_secrets() -> None:
     router.device_info = {"identifiers": {(DOMAIN, "router-id")}}
     router.devices = {SENTINEL_MAC: tracked_device}
 
+    # The primary WAN IP sensor carries no device class; only the
+    # "(Extra)" variants do. Both must be redacted by name.
     wan_entry = Mock(
+        entity_id="sensor.router_wan_ip",
+        domain="sensor",
+        original_device_class=None,
+        original_name="WAN IP",
+        as_partial_dict={},
+    )
+    wan_extra_entry = Mock(
         entity_id="sensor.router_wan_ip_extra_secondary",
         domain="sensor",
         original_device_class="connectivity",
@@ -55,7 +64,14 @@ async def test_diagnostics_redact_router_and_client_secrets() -> None:
     )
     states = {
         wan_entry.entity_id: Mock(),
+        wan_extra_entry.entity_id: Mock(),
         connectivity_entry.entity_id: Mock(),
+    }
+    states[wan_extra_entry.entity_id].as_dict.return_value = {
+        "entity_id": wan_extra_entry.entity_id,
+        "state": SENTINEL_WAN_IP,
+        "context": "not-useful",
+        "attributes": {},
     }
     states[wan_entry.entity_id].as_dict.return_value = {
         "entity_id": wan_entry.entity_id,
@@ -98,7 +114,7 @@ async def test_diagnostics_redact_router_and_client_secrets() -> None:
         patch("custom_components.asusrouter.diagnostics.er.async_get"),
         patch(
             "custom_components.asusrouter.diagnostics.er.async_entries_for_device",
-            return_value=[wan_entry, connectivity_entry],
+            return_value=[wan_entry, wan_extra_entry, connectivity_entry],
         ),
     ):
         diagnostics = await async_get_config_entry_diagnostics(hass, entry)
@@ -106,6 +122,12 @@ async def test_diagnostics_redact_router_and_client_secrets() -> None:
     assert diagnostics["entry"]["data"]["radius_key"] == REDACTED
     wan_state = diagnostics["device"]["entities"][wan_entry.entity_id]["state"]
     assert wan_state["state"] == REDACTED
+    assert (
+        diagnostics["device"]["entities"][wan_extra_entry.entity_id]["state"][
+            "state"
+        ]
+        == REDACTED
+    )
     assert wan_state["attributes"] == {
         "mac": REDACTED,
         "radius_key": REDACTED,

@@ -16,7 +16,7 @@ from .const import (
     TO_REDACT,
     TO_REDACT_ATTRS,
     TO_REDACT_DEV,
-    TO_REDACT_STATE,
+    TO_REDACT_STATE_PREFIXES,
 )
 from .router import ARDevice
 
@@ -67,10 +67,9 @@ async def async_get_config_entry_diagnostics(
                     dict(state_dict["attributes"]), TO_REDACT_ATTRS
                 )
             # Remove sensitive info from sensors states.
-            if (
-                entity_entry.domain,
-                entity_entry.original_device_class,
-            ) in TO_REDACT_STATE:
+            if (entity_entry.original_name or "").startswith(
+                TO_REDACT_STATE_PREFIXES
+            ):
                 state_dict = async_redact_data(state_dict, ["state"])
 
         data["device"]["entities"][entity_entry.entity_id] = {

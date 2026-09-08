@@ -656,9 +656,9 @@ TO_REDACT: list[str] = [
     CONF_USERNAME,
 ]
 TO_REDACT_DEV: list[str] = [ATTR_CONNECTIONS, ATTR_IDENTIFIERS]
-TO_REDACT_STATE: set[tuple[str, str]] = {
-    (Platform.SENSOR, BinarySensorDeviceClass.CONNECTIVITY)
-}
+# Entity name prefixes whose state is redacted in diagnostics. The
+# primary "WAN IP" sensor and its "WAN IP (Extra) ..." variants share it.
+TO_REDACT_STATE_PREFIXES: tuple[str, ...] = ("WAN IP",)
 TO_REDACT_ATTRS: list[str] = [
     CONF_DEVICES,
     PASSWORD,
