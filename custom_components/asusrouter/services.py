@@ -9,7 +9,7 @@ from typing import Any, cast
 import unicodedata
 
 from asusrouter.error import AsusRouterError
-from homeassistant.const import ATTR_ENTITY_ID, Platform
+from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.core import HomeAssistant, ServiceCall
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import (
@@ -22,7 +22,6 @@ import voluptuous as vol
 
 from .client import ARClient
 from .const import ASUSROUTER, DOMAIN, IP, MAC, ROUTER
-from .helpers import to_unique_id
 from .router import ARDevice
 
 ATTR_CONFIG_ENTRY_ID = "config_entry_id"
@@ -326,7 +325,7 @@ def _internet_access_entity_data(
     router, mac, name = _device_tracker_entity_data(hass, entity_id)
     return router, {
         MAC: mac,
-        ATTR_NAME: _sanitize_parental_control_name(name, entity_id),
+        "default_name": _sanitize_parental_control_name(name, entity_id),
     }
 
 
@@ -352,62 +351,6 @@ def _direct_device_router(
             "exactly one loaded AsusRouter router-mode entry"
         )
     return routers[0]
-
-
-async def _reload_parental_control_switches(
-    router: ARDevice,
-    removed_devices: list[dict[str, Any]],
-) -> None:
-    """Remove stale rule entities and reload parental-control switches."""
-
-    # Serialize the unload/reload the same way the static DHCP path is
-    # serialized, so concurrent calls cannot interleave them.
-    async with router._pc_switch_reload_lock:  # pylint: disable=protected-access
-        unload = await router.hass.config_entries.async_unload_platforms(
-            router._config_entry, [Platform.SWITCH]
-        )
-        if not unload:
-            raise HomeAssistantError(
-                "Unable to reload AsusRouter parental-control switches"
-            )
-
-        cleanup_error = None
-        try:
-            removed_unique_ids = {
-                to_unique_id(
-                    f"{router.mac}_{router._static_dhcp_mac(device[MAC])}"
-                    "_block_internet"
-                )
-                for device in removed_devices
-            }
-            registry = er.async_get(router.hass)
-            for entry in er.async_entries_for_config_entry(
-                registry, router._config_entry.entry_id
-            ):
-                if (
-                    entry.domain == Platform.SWITCH
-                    and entry.platform == DOMAIN
-                    and entry.unique_id in removed_unique_ids
-                ):
-                    registry.async_remove(entry.entity_id)
-        except Exception as ex:
-            cleanup_error = ex
-            raise
-        finally:
-            # Always attempt to restore the platform, preserving any original
-            # cleanup exception if forwarding also fails.
-            try:
-                await router.hass.config_entries.async_forward_entry_setups(
-                    router._config_entry, [Platform.SWITCH]
-                )
-            except Exception as forward_error:
-                _LOGGER.exception(
-                    "Unable to restore AsusRouter switches; "
-                    "the switch platform is still unloaded"
-                )
-                if cleanup_error is not None:
-                    raise cleanup_error from forward_error
-                raise
 
 
 def _get_client_field(
@@ -465,18 +408,6 @@ def _router_service_name(hass: HomeAssistant, router: ARDevice) -> str:
     return "unknown"
 
 
-async def _async_apply_internet_access(
-    router: ARDevice,
-    state: str,
-    devices: list[dict[str, str]],
-) -> None:
-    """Apply and finish an internet-access update on one router."""
-
-    await router.async_set_internet_access(state=state, devices=devices)
-    if state == "remove":
-        await _reload_parental_control_switches(router, devices)
-
-
 def _internet_access_targets(
     hass: HomeAssistant,
     call: ServiceCall,
@@ -514,10 +445,9 @@ async def _async_device_internet_access(
     for router, devices in router_devices.items():
         router_name = _router_service_name(hass, router)
         try:
-            await _async_apply_internet_access(
-                router,
-                call.data[ATTR_STATE],
-                devices,
+            await router.async_set_internet_access(
+                state=call.data[ATTR_STATE],
+                devices=devices,
             )
         except ServiceValidationError as ex:
             if len(router_devices) == 1:

@@ -98,7 +98,7 @@ from .const import (
     SSL,
     STATIC_DHCP,
 )
-from .helpers import as_dict
+from .helpers import as_dict, to_unique_id
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -348,7 +348,6 @@ class ARDevice:
         )
         self._pc_rules: dict[str, Any] = {}
         self._pc_rule_lock = asyncio.Lock()
-        self._pc_switch_reload_lock = asyncio.Lock()
         self._static_dhcp_lock = asyncio.Lock()
         self._static_dhcp_leases: list[dict[str, str]] = []
 
@@ -766,8 +765,9 @@ class ARDevice:
         """Serialize each router's rule read, write and confirmation."""
 
         async with self._pc_rule_lock:
+            expected_rules: dict[str, ParentalControlRule] = {}
             result = await self.bridge.async_pc_rule(
-                state=state, devices=devices
+                state=state, devices=devices, expected_rules=expected_rules
             )
             if result.success is True:
                 needed_time = result.needed_time
@@ -797,8 +797,10 @@ class ARDevice:
             for attempt in range(PC_RULE_CONFIRM_ATTEMPTS):
                 refreshed = await self.update_pc_rules(force=True)
                 if refreshed and self._internet_access_state_matches(
-                    state, devices
+                    state, devices, expected_rules
                 ):
+                    if state == "remove":
+                        await self._async_remove_pc_rule_entities(devices)
                     return
                 if attempt < PC_RULE_CONFIRM_ATTEMPTS - 1:
                     await asyncio.sleep(PC_RULE_CONFIRM_DELAY)
@@ -814,6 +816,7 @@ class ARDevice:
         self,
         state: str,
         devices: list[dict[str, Any]],
+        expected_rules: dict[str, ParentalControlRule],
     ) -> bool:
         """Return whether the refreshed rules match the requested state."""
 
@@ -841,8 +844,34 @@ class ARDevice:
         return expected_type is not None and all(
             (rule := rules_by_mac.get(mac)) is not None
             and rule.type == expected_type
+            and (expected := expected_rules.get(mac)) is not None
+            and (rule.name or "") == (expected.name or "")
+            and (rule.timemap or "").replace("&#60", "<")
+            == (expected.timemap or "").replace("&#60", "<")
             for mac in target_macs
         )
+
+    async def _async_remove_pc_rule_entities(
+        self, devices: list[dict[str, Any]]
+    ) -> None:
+        """Finish entity removal before releasing the rule writer lock."""
+
+        macs = {self._static_dhcp_mac(device[MAC]) for device in devices}
+        removals: list[Awaitable[None]] = []
+        async_dispatcher_send(
+            self.hass, self.signal_pc_rules_removed, macs, removals
+        )
+        if removals:
+            await asyncio.gather(*removals)
+
+        # Disabled entities have registry entries but no live signal handler.
+        registry = er.async_get(self.hass)
+        for mac in macs:
+            unique_id = to_unique_id(f"{self.mac}_{mac}_block_internet")
+            if entity_id := registry.async_get_entity_id(
+                Platform.SWITCH, DOMAIN, unique_id
+            ):
+                registry.async_remove(entity_id)
 
     async def update_pc_rules(self, force: bool = False) -> bool:
         """Update parental control rules."""
@@ -1489,6 +1518,12 @@ class ARDevice:
         """Notify updated parental control rules."""
 
         return f"{DOMAIN}-pc-rules-update"
+
+    @property
+    def signal_pc_rules_removed(self) -> str:
+        """Notify confirmed rule deletions for this router only."""
+
+        return f"{DOMAIN}-{self._config_entry.entry_id}-pc-rules-removed"
 
     @property
     def signal_static_dhcp_update(self) -> str:

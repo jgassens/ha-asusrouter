@@ -856,7 +856,7 @@ class ARBridge:
 
         return ParentalControlRule(
             mac=normalized_mac,
-            name=device.get("name") or "",
+            name=device.get("name") or device.get("default_name") or "",
             type=rule_type,
         )
 
@@ -883,10 +883,12 @@ class ARBridge:
         *,
         state: str,
         devices: list[dict[str, Any]],
+        expected_rules: dict[str, ParentalControlRule] | None = None,
     ) -> ServiceResult:
         """Write one table for ARDevice.async_set_internet_access.
 
         The caller must hold the router's rule lock through confirmation.
+        Populate its call-local expected_rules from the fresh write snapshot.
         """
 
         rule_type = {
@@ -900,7 +902,7 @@ class ARBridge:
             )
 
         rules_to_set = [
-            rule
+            (device, rule)
             for device in devices
             if (rule := self._pc_device2rule(device, rule_type)) is not None
         ]
@@ -935,14 +937,36 @@ class ARBridge:
             )
             for mac, rule in current_rules.items()
         }
-        for rule in rules_to_set:
-            new_rules = update_rule(new_rules, rule)
+        existing_by_mac = {
+            format_mac(mac).upper(): rule for mac, rule in new_rules.items()
+        }
+        for device, rule in rules_to_set:
+            existing = existing_by_mac.get(rule.mac)
+            if existing is not None and rule_type is not PCRuleType.REMOVE:
+                # add_rule/check_rule would replace even retained blank
+                # fields with defaults. Existing rows only change type and
+                # an explicitly supplied, nonempty name.
+                new_rules[existing.mac] = dataclasses.replace(
+                    existing,
+                    type=rule_type,
+                    name=device.get("name") or existing.name,
+                )
+            else:
+                new_rules = update_rule(new_rules, existing or rule)
 
         if capabilities is not None:
             try:
                 validate_pc_capacity(current_rules, new_rules, capabilities)
             except ParentalControlCapacityError as ex:
                 raise ServiceValidationError(str(ex)) from ex
+
+        if expected_rules is not None:
+            expected_rules.update(
+                {
+                    format_mac(mac): dataclasses.replace(rule)
+                    for mac, rule in new_rules.items()
+                }
+            )
 
         result = await self.api.async_run_service_result(
             service="restart_firewall",

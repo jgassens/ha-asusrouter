@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from collections.abc import Awaitable
+from functools import partial
 import logging
 from typing import Any
 
@@ -11,7 +13,7 @@ from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
@@ -62,7 +64,7 @@ async def async_setup_entry(
 
         add_entities(router, async_add_entities, tracked)
 
-    router.async_on_close(
+    config_entry.async_on_unload(
         async_dispatcher_connect(
             hass, router.signal_pc_rules_new, update_router
         )
@@ -85,7 +87,9 @@ def add_entities(
         if mac in tracked:
             continue
 
-        new_tracked.append(ClientInternetSwitch(router, rule))
+        entity = ClientInternetSwitch(router, rule)
+        entity.async_on_remove(partial(tracked.discard, mac))
+        new_tracked.append(entity)
         tracked.add(mac)
 
     if new_tracked:
@@ -190,6 +194,12 @@ class ClientInternetSwitch(SwitchEntity):
                 return None
 
     @property
+    def available(self) -> bool:
+        """Return whether the router still has this device's rule."""
+
+        return self._rule.mac in self._router.pc_rules
+
+    @property
     def icon(self) -> str | None:
         """Get the icon."""
 
@@ -207,22 +217,22 @@ class ClientInternetSwitch(SwitchEntity):
 
     async def _set_state(
         self,
-        state: ParentalControlRule,
+        state: PCRuleType,
         **kwargs: Any,
     ) -> None:
         """Set state."""
 
         try:
-            _LOGGER.debug("Changing PC rule: rule_type=%s", state.type.name)
+            _LOGGER.debug("Changing PC rule: rule_type=%s", state.name)
             await self._router.async_set_internet_access(
-                state="block" if state.type == PCRuleType.BLOCK else "allow",
-                devices=[{"mac": state.mac, "name": state.name}],
+                state="block" if state == PCRuleType.BLOCK else "allow",
+                devices=[{"mac": self._rule.mac}],
             )
         except (AsusRouterError, OSError) as ex:
             raise HomeAssistantError(
                 f"Unable to change device internet access: {ex}"
             ) from ex
-        self._rule = state
+        self._rule = self._router.pc_rules[self._rule.mac]
 
     async def async_turn_on(
         self,
@@ -231,11 +241,7 @@ class ClientInternetSwitch(SwitchEntity):
         """Turn on block."""
 
         await self._set_state(
-            state=ParentalControlRule(
-                mac=self._rule.mac,
-                name=self._rule.name,
-                type=PCRuleType.BLOCK,
-            ),
+            state=PCRuleType.BLOCK,
             **kwargs,
         )
 
@@ -246,11 +252,7 @@ class ClientInternetSwitch(SwitchEntity):
         """Turn off block."""
 
         await self._set_state(
-            state=ParentalControlRule(
-                mac=self._rule.mac,
-                name=self._rule.name,
-                type=PCRuleType.DISABLE,
-            ),
+            state=PCRuleType.DISABLE,
             **kwargs,
         )
 
@@ -260,7 +262,24 @@ class ClientInternetSwitch(SwitchEntity):
 
         if self._rule.mac in self._router.pc_rules:
             self._rule = self._router.pc_rules[self._rule.mac]
-            self.async_write_ha_state()
+        self.async_write_ha_state()
+
+    @callback
+    def async_rule_removed(
+        self, macs: set[str], removals: list[Awaitable[None]]
+    ) -> None:
+        """Let the writer await this entity's complete removal."""
+
+        if self._mac in macs:
+            removals.append(self._async_remove_rule())
+
+    async def _async_remove_rule(self) -> None:
+        """Remove the live switch before deleting its registry entry."""
+
+        await self.async_remove(force_remove=True)
+        registry = er.async_get(self.hass)
+        if registry.async_get(self.entity_id) is not None:
+            registry.async_remove(self.entity_id)
 
     async def async_added_to_hass(self) -> None:
         """Register state update callback."""
@@ -270,5 +289,12 @@ class ClientInternetSwitch(SwitchEntity):
                 self.hass,
                 self._router.signal_pc_rules_update,
                 self.async_on_demand_update,
+            )
+        )
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass,
+                self._router.signal_pc_rules_removed,
+                self.async_rule_removed,
             )
         )

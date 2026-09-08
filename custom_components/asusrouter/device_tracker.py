@@ -52,7 +52,7 @@ async def async_setup_entry(
 
         add_entities(router, async_add_entities, tracked)
 
-    router.async_on_close(
+    config_entry.async_on_unload(
         async_dispatcher_connect(hass, router.signal_device_new, update_router)
     )
 

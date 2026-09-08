@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
-from unittest.mock import AsyncMock, Mock, call, patch
+from unittest.mock import ANY, AsyncMock, Mock, call, patch
 
 from asusrouter.error import AsusRouterError
 from asusrouter.modules.data import AsusData
@@ -19,7 +19,6 @@ from asusrouter.modules.parental_control import (
     read_pc_rules,
 )
 from asusrouter.modules.service import ServiceResult
-from homeassistant.const import Platform
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers.device_registry import format_mac
 import pytest
@@ -33,7 +32,6 @@ from custom_components.asusrouter.services import (
     SERVICE_DEVICE_INTERNET_ACCESS,
     _client_entity_data,
     _internet_access_entity_data,
-    _reload_parental_control_switches,
     async_setup_services,
 )
 from custom_components.asusrouter.switch import ClientInternetSwitch
@@ -298,8 +296,8 @@ def _router(bridge: ARBridge | None = None) -> Mock:
     router.mac = "24:4b:fe:f5:ee:20"
     router.pc_rules = {}
     router._static_dhcp_mac.side_effect = lambda mac: format_mac(str(mac))
-    router._pc_switch_reload_lock = asyncio.Lock()
     router._pc_rule_lock = asyncio.Lock()
+    router._async_remove_pc_rule_entities = AsyncMock()
 
     async def set_internet_access(**kwargs: dict) -> None:
         await ARDevice.async_set_internet_access(router, **kwargs)
@@ -308,13 +306,22 @@ def _router(bridge: ARBridge | None = None) -> Mock:
         side_effect=set_internet_access
     )
 
-    def state_matches(state: str, devices: list[dict]) -> bool:
-        return ARDevice._internet_access_state_matches(router, state, devices)
+    def state_matches(
+        state: str,
+        devices: list[dict],
+        expected_rules: dict[str, ParentalControlRule],
+    ) -> bool:
+        return ARDevice._internet_access_state_matches(
+            router, state, devices, expected_rules
+        )
 
     router._internet_access_state_matches.side_effect = state_matches
 
     async def apply_rule(
-        *, state: str, devices: list[dict[str, str]]
+        *,
+        state: str,
+        devices: list[dict[str, str]],
+        expected_rules: dict[str, ParentalControlRule],
     ) -> ServiceResult:
         for device in devices:
             mac = format_mac(str(device["mac"]))
@@ -329,6 +336,7 @@ def _router(bridge: ARBridge | None = None) -> Mock:
                     "block": PCRuleType.BLOCK,
                 }[state],
             )
+            expected_rules[mac] = router.pc_rules[mac]
         return _result(True, 0)
 
     router.bridge.async_pc_rule = AsyncMock(side_effect=apply_rule)
@@ -377,6 +385,7 @@ async def test_service_routes_direct_devices_to_only_router() -> None:
     router.bridge.async_pc_rule.assert_awaited_once_with(
         state="block",
         devices=[{"mac": "aa:bb:cc:dd:ee:ff", "name": "Console"}],
+        expected_rules=ANY,
     )
     router.update_pc_rules.assert_awaited_once()
     router.async_set_internet_access.assert_awaited_once_with(
@@ -417,6 +426,7 @@ async def test_service_routes_entity_target_to_own_router() -> None:
     router.bridge.async_pc_rule.assert_awaited_once_with(
         state="allow",
         devices=[device],
+        expected_rules=ANY,
     )
 
 
@@ -451,87 +461,31 @@ async def test_direct_devices_require_router_for_multiple_entries() -> None:
 
 
 @pytest.mark.asyncio
-async def test_confirmed_idempotent_remove_reloads_switches() -> None:
-    """An already-removed rule should still clean up switch entities."""
+async def test_idempotent_remove_cleans_entities_under_rule_lock() -> None:
+    """An already-removed rule still cleans up before another writer runs."""
 
     router = _router()
     router.bridge.async_pc_rule.side_effect = None
     router.bridge.async_pc_rule.return_value = _result(False)
     hass, handlers = _service_hass(router)
     await async_setup_services(hass)
-    handler = handlers[SERVICE_DEVICE_INTERNET_ACCESS]
 
-    async def reload_after_unlock(*_args: object) -> None:
-        assert not router._pc_rule_lock.locked()
+    async def cleanup_while_locked(*_args: object) -> None:
+        assert router._pc_rule_lock.locked()
 
-    call = Mock(
-        data={
-            "config_entry_id": "router-1",
-            "devices": [{"mac": "AA:BB:CC:DD:EE:FF"}],
-            "state": "remove",
-        }
-    )
-
-    with (
-        patch(
-            "custom_components.asusrouter.services._get_entity_ids",
-            return_value=[],
-        ),
-        patch(
-            "custom_components.asusrouter.services."
-            "_reload_parental_control_switches",
-            new_callable=AsyncMock,
-            side_effect=reload_after_unlock,
-        ) as reload_switches,
+    router._async_remove_pc_rule_entities.side_effect = cleanup_while_locked
+    devices = [{"mac": "AA:BB:CC:DD:EE:FF"}]
+    with patch(
+        "custom_components.asusrouter.services._get_entity_ids",
+        return_value=[],
     ):
-        await handler(call)
-
-    reload_switches.assert_awaited_once_with(router, call.data["devices"])
-    router.update_pc_rules.assert_awaited_once_with(force=True)
-
-
-@pytest.mark.asyncio
-async def test_remove_deletes_matching_switch_registry_entry() -> None:
-    """Removing a rule should not leave an unavailable GUI entity."""
-
-    router = _router()
-    router._config_entry = Mock(entry_id="router-1")
-    router.hass.config_entries.async_unload_platforms = AsyncMock(
-        return_value=True
-    )
-    router.hass.config_entries.async_forward_entry_setups = AsyncMock()
-    registry = Mock()
-    matching = Mock(
-        domain=Platform.SWITCH,
-        platform=DOMAIN,
-        unique_id=("24:4b:fe:f5:ee:20_aa:bb:cc:dd:ee:ff_block_internet"),
-        entity_id="switch.console_block_internet",
-    )
-    unrelated = Mock(
-        domain=Platform.SWITCH,
-        platform=DOMAIN,
-        unique_id="24:4b:fe:f5:ee:20_block_internet",
-        entity_id="switch.router_block_internet",
-    )
-
-    with (
-        patch(
-            "custom_components.asusrouter.services.er.async_get",
-            return_value=registry,
-        ),
-        patch(
-            "custom_components.asusrouter.services.er."
-            "async_entries_for_config_entry",
-            return_value=[matching, unrelated],
-        ),
-    ):
-        await _reload_parental_control_switches(
-            router, [{"mac": "AA:BB:CC:DD:EE:FF"}]
+        await handlers[SERVICE_DEVICE_INTERNET_ACCESS](
+            Mock(data={"devices": devices, "state": "remove"})
         )
 
-    registry.async_remove.assert_called_once_with(
-        "switch.console_block_internet"
-    )
+    router._async_remove_pc_rule_entities.assert_awaited_once_with(devices)
+    router.update_pc_rules.assert_awaited_once_with(force=True)
+    router.hass.config_entries.async_unload_platforms.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -610,7 +564,10 @@ async def test_stale_read_back_is_confirmed_after_retry() -> None:
     pending: dict[str, ParentalControlRule] = {}
 
     async def apply_rule(
-        *, state: str, devices: list[dict[str, str]]
+        *,
+        state: str,
+        devices: list[dict[str, str]],
+        expected_rules: dict[str, ParentalControlRule],
     ) -> ServiceResult:
         for device in devices:
             mac = str(device["mac"]).lower()
@@ -619,6 +576,7 @@ async def test_stale_read_back_is_confirmed_after_retry() -> None:
                 name=device.get("name", ""),
                 type=PCRuleType.BLOCK,
             )
+            expected_rules[mac] = pending[mac]
         return _result(True, 0)
 
     refreshes = 0
@@ -662,46 +620,6 @@ async def test_stale_read_back_is_confirmed_after_retry() -> None:
 
 
 @pytest.mark.asyncio
-async def test_switch_reload_restores_platform_on_failure() -> None:
-    """A failing registry cleanup must not leave switches unloaded."""
-
-    router = _router()
-    router._config_entry = Mock(entry_id="router-1")
-    router.hass.config_entries.async_unload_platforms = AsyncMock(
-        return_value=True
-    )
-    router.hass.config_entries.async_forward_entry_setups = AsyncMock()
-    registry = Mock()
-    matching = Mock(
-        domain=Platform.SWITCH,
-        platform=DOMAIN,
-        unique_id=("24:4b:fe:f5:ee:20_aa:bb:cc:dd:ee:ff_block_internet"),
-        entity_id="switch.console_block_internet",
-    )
-    registry.async_remove.side_effect = RuntimeError("registry broken")
-
-    with (
-        patch(
-            "custom_components.asusrouter.services.er.async_get",
-            return_value=registry,
-        ),
-        patch(
-            "custom_components.asusrouter.services.er."
-            "async_entries_for_config_entry",
-            return_value=[matching],
-        ),
-        pytest.raises(RuntimeError, match="registry broken"),
-    ):
-        await _reload_parental_control_switches(
-            router, [{"mac": "AA:BB:CC:DD:EE:FF"}]
-        )
-
-    router.hass.config_entries.async_forward_entry_setups.assert_awaited_once_with(
-        router._config_entry, [Platform.SWITCH]
-    )
-
-
-@pytest.mark.asyncio
 async def test_state_matches_rejects_malformed_rules() -> None:
     """An unexpected rule payload must surface as HomeAssistantError."""
 
@@ -710,7 +628,7 @@ async def test_state_matches_rejects_malformed_rules() -> None:
 
     with pytest.raises(HomeAssistantError, match="unexpected"):
         ARDevice._internet_access_state_matches(
-            router, "block", [{"mac": "AA:BB:CC:DD:EE:FF"}]
+            router, "block", [{"mac": "AA:BB:CC:DD:EE:FF"}], {}
         )
 
 
@@ -784,7 +702,7 @@ def test_entity_data_sanitizes_discovered_name_and_mac(
     assert resolved_router is router
     assert device == {
         "mac": "aa:bb:cc:dd:ee:ff",
-        "name": expected_name,
+        "default_name": expected_name,
     }
     assert "Sanitized parental-control device name" in caplog.text
     assert name not in caplog.text
@@ -995,7 +913,7 @@ async def test_switch_uses_router_writer_and_retains_other_rules(
         await switch.async_turn_off()
 
     router.async_set_internet_access.assert_awaited_once_with(
-        state=state, devices=[{"mac": original.mac, "name": original.name}]
+        state=state, devices=[{"mac": original.mac}]
     )
     assert _written_macs(bridge).split(">") == [keep.mac, original.mac]
     bridge.api.async_run_service_result.assert_awaited_once()
@@ -1131,39 +1049,6 @@ async def test_retained_empty_fields_are_lossless_without_snapshot_mutation(
     assert target.name is None
     assert target.timemap is None
     assert target.type == PCRuleType.DISABLE
-
-
-@pytest.mark.asyncio
-async def test_switch_reload_preserves_cleanup_error_when_forward_fails(
-    caplog: pytest.LogCaptureFixture,
-) -> None:
-    """The cleanup error remains primary when restoring switches also fails."""
-
-    router = _router()
-    router.hass.config_entries.async_unload_platforms = AsyncMock(
-        return_value=True
-    )
-    cleanup_error = RuntimeError("registry broken")
-    forward_error = RuntimeError("forward broken")
-    router.hass.config_entries.async_forward_entry_setups = AsyncMock(
-        side_effect=forward_error
-    )
-
-    with (
-        patch(
-            "custom_components.asusrouter.services.er.async_get",
-            side_effect=cleanup_error,
-        ),
-        pytest.raises(RuntimeError, match="registry broken") as raised,
-    ):
-        await _reload_parental_control_switches(
-            router, [{"mac": "AA:BB:CC:DD:EE:FF"}]
-        )
-
-    assert raised.value is cleanup_error
-    assert raised.value.__cause__ is forward_error
-    assert "switch platform is still unloaded" in caplog.text
-    router.hass.config_entries.async_forward_entry_setups.assert_awaited_once()
 
 
 @pytest.mark.asyncio
