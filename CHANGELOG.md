@@ -45,6 +45,22 @@
   fall back to English. Fixed the `cannot_resolve` key mismatch.
 - The library version check runs off the event loop.
 - Removed unused constants and a stale duplicate of the result codes.
+- The five write services (`device_internet_access`, `set_static_dhcp_lease`,
+  `remove_static_dhcp_lease`, `reserve_current_ip`,
+  `refresh_static_dhcp_leases`) are now admin-only. Calls from automations
+  and scripts, which carry no user, still run.
+- "Hide passwords" now defaults to on and also hides RADIUS keys, so Wi-Fi
+  secrets are no longer published as entity attributes unless you turn the
+  option off.
+- New option "Verify SSL certificate", default off (ASUS routers ship a
+  self-signed certificate). When on, both Home Assistant's session and the
+  library verify the router's certificate. Existing entries are unchanged.
+- New option "Ignore devices with randomised MAC addresses", default off.
+  When on, new clients whose MAC has the locally-administered bit set are
+  not tracked; clients already known keep updating.
+- Removed dead code: legacy `cert_path` / `confirm` / `enable_control`
+  options, unused sensor description fields, and the guards for a library
+  without static DHCP support (the version check makes them unreachable).
 - Requires asusrouter 2.0.0+jgassens.3 (version bumped so existing installs
   reinstall the library).
 
