@@ -848,7 +848,7 @@ class ARBridge:
             return None
 
         try:
-            normalized_mac = format_mac(str(mac)).upper()
+            normalized_mac = helpers.normalize_mac(mac).upper()
         except ValueError as ex:
             raise ServiceValidationError(
                 "Invalid parental-control device MAC address"

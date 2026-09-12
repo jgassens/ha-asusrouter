@@ -7,6 +7,24 @@ from typing import Any
 
 from asusrouter.error import AsusRouterAccessError
 from asusrouter.modules.endpoint.error import AccessError
+from homeassistant.helpers.device_registry import format_mac
+
+MAC_ADDRESS = re.compile(
+    r"^(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$|^[0-9A-Fa-f]{12}$"
+)
+
+
+def normalize_mac(value: Any) -> str:
+    """Return a MAC as `aa:bb:cc:dd:ee:ff` or raise ValueError.
+
+    Home Assistant's format_mac returns unrecognised strings unchanged
+    instead of raising, so the shape is checked here first.
+    """
+
+    candidate = str(value).strip()
+    if not MAC_ADDRESS.match(candidate):
+        raise ValueError(f"not a MAC address: {candidate!r}")
+    return format_mac(candidate)
 
 
 def access_error_details(

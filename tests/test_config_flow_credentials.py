@@ -248,3 +248,33 @@ async def test_reauth_confirm_updates_options_and_aborts() -> None:
         checked_options
     )
     config_entries.async_schedule_reload.assert_called_once_with(ENTRY_ID)
+
+
+@pytest.mark.asyncio
+async def test_reauth_confirm_leaves_reload_to_update_listener() -> None:
+    """A loaded entry reloads through its listener, not a second reload."""
+
+    entry = Mock(
+        data={CONF_HOST: HOST},
+        entry_id=ENTRY_ID,
+        options={**OLD_CREDENTIALS},
+        title="Test router",
+        update_listeners=[Mock()],
+    )
+    config_entries = Mock()
+    config_entries.async_get_known_entry.return_value = entry
+    hass = Mock(config_entries=config_entries)
+    flow = ARFlowHandler()
+    flow.hass = hass
+    flow.context = {"source": SOURCE_REAUTH, "entry_id": ENTRY_ID}
+    submitted = {CONF_USERNAME: "new-admin", CONF_PASSWORD: "new-password"}
+
+    with patch(
+        "custom_components.asusrouter.config_flow._async_check_connection",
+        new=AsyncMock(return_value={CONFIGS: {**entry.options, **submitted}}),
+    ):
+        result = await flow.async_step_reauth_confirm(submitted)
+
+    assert result["reason"] == "reauth_successful"
+    config_entries.async_update_entry.assert_called_once()
+    config_entries.async_schedule_reload.assert_not_called()

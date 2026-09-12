@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from ipaddress import IPv4Address
 import logging
-import re
 from typing import Any, cast
 import unicodedata
 
@@ -17,11 +16,11 @@ from homeassistant.helpers import (
     entity_registry as er,
     target as target_helpers,
 )
-from homeassistant.helpers.device_registry import format_mac
 import voluptuous as vol
 
 from .client import ARClient
 from .const import ASUSROUTER, DOMAIN, IP, MAC, ROUTER
+from .helpers import normalize_mac
 from .router import ARDevice
 
 ATTR_CONFIG_ENTRY_ID = "config_entry_id"
@@ -40,9 +39,6 @@ SERVICE_REMOVE_STATIC_DHCP_LEASE = "remove_static_dhcp_lease"
 SERVICE_RESERVE_CURRENT_IP = "reserve_current_ip"
 SERVICE_SET_STATIC_DHCP_LEASE = "set_static_dhcp_lease"
 
-MAC_ADDRESS = re.compile(
-    r"^(?:[0-9A-Fa-f]{2}[:-]){5}[0-9A-Fa-f]{2}$|^[0-9A-Fa-f]{12}$"
-)
 PC_NAME_MAX_LENGTH = 32
 PC_NAME_DELIMITERS = ("<", ">", "&#60", "&#62")
 
@@ -59,10 +55,10 @@ def _strip(value: Any) -> str:
 def _mac_address(value: Any) -> str:
     """Validate a MAC address."""
 
-    normalized = _strip(value)
-    if not MAC_ADDRESS.match(normalized):
-        raise vol.Invalid("expected MAC address")
-    return format_mac(normalized)
+    try:
+        return normalize_mac(_strip(value))
+    except ValueError as ex:
+        raise vol.Invalid("expected MAC address") from ex
 
 
 def _ipv4_address(value: Any) -> str:
@@ -300,7 +296,7 @@ def _device_tracker_entity_data(
         )
 
     try:
-        mac = format_mac(str(mac))
+        mac = normalize_mac(mac)
         name = _get_client_field(router, mac, ATTR_NAME)
         if name is None:
             name = capabilities.get(ATTR_NAME)

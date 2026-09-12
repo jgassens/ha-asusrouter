@@ -737,9 +737,17 @@ class ARFlowHandler(ConfigFlow, domain=DOMAIN):
                 errors[BASE] = result[ERRORS]
             else:
                 candidate_options.update(result[CONFIGS])
-                return self.async_update_reload_and_abort(
+                # A loaded entry has an update listener that reloads it
+                # on credential changes; only an entry that never loaded
+                # needs the reload scheduled here.
+                self.hass.config_entries.async_update_entry(
                     entry, options=candidate_options
                 )
+                if not entry.update_listeners:
+                    self.hass.config_entries.async_schedule_reload(
+                        entry.entry_id
+                    )
+                return self.async_abort(reason="reauth_successful")
         else:
             user_input = {
                 CONF_USERNAME: entry.options.get(

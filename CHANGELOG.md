@@ -9,10 +9,17 @@
   The affected switch removes itself and its registry entry while the writer
   still holds the rule lock; a rule deleted from the router's own UI shows
   the switch as unavailable instead of stale.
-- MAC addresses are canonicalised on every path, so `AA-BB-…`, `aabb…` and
-  `aa:bb:…` address the same rule instead of creating duplicates. Device
-  names are limited to 32 characters and reject delimiter and control
-  characters; names from device trackers are sanitised.
+- MAC addresses are validated and canonicalised on every path, so
+  `AA-BB-…`, `aabb…` and `aa:bb:…` address the same rule instead of creating
+  duplicates, and a device tracker carrying a malformed MAC is reported
+  instead of written to the router. Device names are limited to 32
+  characters and reject delimiter and control characters; names from device
+  trackers are sanitised.
+- The periodic rule poll now waits for an in-flight rule write, so a poll
+  that started before a removal can no longer recreate the removed switch.
+- Confirmation compares names after HTML-unescaping, matching how
+  schedules were already compared, so a router that echoes `&` as `&amp;`
+  no longer fails a successful write.
 - A service call spanning several routers now finishes every router and
   reports which succeeded and which failed instead of stopping at the first.
 - Wrong credentials, a locked-out login, "another admin is logged in" and a
@@ -22,8 +29,9 @@
   entry. Added a re-authentication flow.
 - Entity and button write failures raise a Home Assistant error instead of
   being logged and swallowed.
-- Diagnostics redact RADIUS keys, MAC addresses, tracked-device names and
-  addresses, and the WAN IP state for every WAN IP sensor.
+- Diagnostics redact RADIUS keys, MAC addresses, client names (tracked
+  devices, tracker attributes and entity names) and addresses, and the WAN
+  IP state for every WAN IP sensor.
 - All twelve translation files carry the full key set; untranslated keys
   fall back to English. Fixed the `cannot_resolve` key mismatch.
 - The library version check runs off the event loop.

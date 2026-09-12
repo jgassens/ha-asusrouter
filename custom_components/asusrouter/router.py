@@ -4,7 +4,9 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Awaitable, Callable
+import contextlib
 from datetime import UTC, datetime, timedelta
+import html
 from ipaddress import IPv4Address
 import logging
 from typing import Any, cast
@@ -99,9 +101,22 @@ from .const import (
     SSL,
     STATIC_DHCP,
 )
-from .helpers import access_error_details, as_dict, to_unique_id
+from .helpers import access_error_details, as_dict, normalize_mac, to_unique_id
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _pc_field(value: str | None) -> str:
+    """Normalise a parental-control name or schedule for comparison.
+
+    The router stores `<` and `>` as `&#60` / `&#62` and may HTML-escape
+    other characters on readback, so both sides are unescaped first.
+    """
+
+    return html.unescape(
+        (value or "").replace("&#60", "<").replace("&#62", ">")
+    )
+
 
 # A successful restart_firewall waits for its reported delay, capped at 10s;
 # missing or invalid delays use 1s, while zero skips the initial wait. Then
@@ -849,9 +864,8 @@ class ARDevice:
             (rule := rules_by_mac.get(mac)) is not None
             and rule.type == expected_type
             and (expected := expected_rules.get(mac)) is not None
-            and (rule.name or "") == (expected.name or "")
-            and (rule.timemap or "").replace("&#60", "<")
-            == (expected.timemap or "").replace("&#60", "<")
+            and _pc_field(rule.name) == _pc_field(expected.name)
+            and _pc_field(rule.timemap) == _pc_field(expected.timemap)
             for mac in target_macs
         )
 
@@ -878,15 +892,23 @@ class ARDevice:
                 registry.async_remove(entity_id)
 
     async def update_pc_rules(self, force: bool = False) -> bool:
-        """Update parental control rules."""
+        """Update parental control rules.
+
+        A forced read is only issued by the rule writer, which already
+        holds the rule lock. Every other read takes the lock so a poll
+        that started before a write cannot land after its confirmation
+        and resurrect a removed rule.
+        """
 
         _LOGGER.debug(
             "Updating parental control rules for '%s'", self._conf_host
         )
+        guard = contextlib.nullcontext() if force else self._pc_rule_lock
         try:
-            pc_data = await self.bridge._get_data_parental_control(  # pylint: disable=protected-access
-                force=force
-            )
+            async with guard:
+                pc_data = await self.bridge._get_data_parental_control(  # pylint: disable=protected-access
+                    force=force
+                )
         except UpdateFailed as ex:
             if not self._connect_error:
                 self._connect_error = True
@@ -970,7 +992,7 @@ class ARDevice:
         """Normalize a static DHCP MAC address for comparisons."""
 
         try:
-            return format_mac(str(value))
+            return normalize_mac(value)
         except ValueError as ex:
             raise ServiceValidationError(
                 translation_domain=DOMAIN,

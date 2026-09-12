@@ -381,3 +381,22 @@ def test_rule_removed_signal_is_scoped_to_router() -> None:
     first._config_entry = Mock(entry_id="first")
     second._config_entry = Mock(entry_id="second")
     assert first.signal_pc_rules_removed != second.signal_pc_rules_removed
+
+
+@pytest.mark.asyncio
+async def test_poll_waits_for_rule_writer_lock(
+    lifecycle: SimpleNamespace,
+) -> None:
+    """An unforced rule read cannot run while a writer holds the lock."""
+
+    env = lifecycle
+    env.router.bridge.api.async_get_data.return_value = {"rules": {}}
+
+    async with env.router._pc_rule_lock:
+        poll = asyncio.create_task(env.router.update_pc_rules())
+        await asyncio.sleep(0)
+        assert not poll.done()
+        assert env.router.pc_rules
+
+    assert await poll is True
+    assert not env.router.pc_rules

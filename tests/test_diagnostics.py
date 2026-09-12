@@ -46,7 +46,7 @@ async def test_diagnostics_redact_router_and_client_secrets() -> None:
         domain="sensor",
         original_device_class=None,
         original_name="WAN IP",
-        as_partial_dict={},
+        as_partial_dict={"original_name": "WAN IP", "platform": DOMAIN},
     )
     wan_extra_entry = Mock(
         entity_id="sensor.router_wan_ip_extra_secondary",
@@ -80,6 +80,8 @@ async def test_diagnostics_redact_router_and_client_secrets() -> None:
         "attributes": {
             "mac": SENTINEL_MAC,
             "radius_key": SENTINEL_RADIUS_KEY,
+            "name": SENTINEL_NAME,
+            "host_name": SENTINEL_NAME,
             "safe": "visible",
         },
     }
@@ -131,8 +133,14 @@ async def test_diagnostics_redact_router_and_client_secrets() -> None:
     assert wan_state["attributes"] == {
         "mac": REDACTED,
         "radius_key": REDACTED,
+        "name": REDACTED,
+        "host_name": REDACTED,
         "safe": "visible",
     }
+    assert (
+        diagnostics["device"]["entities"][wan_entry.entity_id]["original_name"]
+        == REDACTED
+    )
     assert (
         diagnostics["device"]["entities"][connectivity_entry.entity_id][
             "state"

@@ -235,3 +235,30 @@ async def test_confirmation_accepts_preserved_wire_representation(
     assert arguments[KEY_PC_NAME] == ""
     assert arguments[KEY_PC_TIMEMAP] == (timemap or "").replace("&#60", "<")
     assert list(router.pc_rules) == [mac]
+
+
+@pytest.mark.asyncio
+async def test_confirmation_accepts_html_escaped_name_readback() -> None:
+    """A router that escapes `&` on readback still confirms the write."""
+
+    original = ParentalControlRule(
+        mac=MAC, name="Tom & Jerry", type=PCRuleType.DISABLE
+    )
+    bridge = _bridge(rules={MAC: original})
+    router = _router(bridge)
+
+    async def write(**kwargs: dict) -> ServiceResult:
+        rules = _read_written_rules(kwargs["arguments"])
+        bridge.api.async_get_data.return_value = {
+            "rules": {
+                mac: replace(rule, name=rule.name.replace("&", "&amp;"))
+                for mac, rule in rules.items()
+            }
+        }
+        return _result(True, 0)
+
+    bridge.api.async_run_service_result.side_effect = write
+    await router.async_set_internet_access(
+        state="block", devices=[{"mac": MAC}]
+    )
+    assert router.pc_rules[MAC].type == PCRuleType.BLOCK

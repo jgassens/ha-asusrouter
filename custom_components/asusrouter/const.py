@@ -654,6 +654,9 @@ TO_REDACT: list[str] = [
     "radius_key",
     CONF_UNIQUE_ID,
     CONF_USERNAME,
+    # Entity names embed client names for switches and trackers.
+    NAME,
+    "original_name",
 ]
 TO_REDACT_DEV: list[str] = [ATTR_CONNECTIONS, ATTR_IDENTIFIERS]
 # Entity name prefixes whose state is redacted in diagnostics. The
@@ -669,6 +672,8 @@ TO_REDACT_ATTRS: list[str] = [
     "private_key",
     "psk",
     "radius_key",
+    NAME,
+    "host_name",
 ]
 
 # <-- DIAGNOSTICS
