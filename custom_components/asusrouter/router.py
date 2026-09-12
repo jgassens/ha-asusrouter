@@ -64,6 +64,7 @@ from .const import (
     CONF_DEFAULT_CONSIDER_HOME,
     CONF_DEFAULT_CREATE_DEVICES,
     CONF_DEFAULT_EVENT,
+    CONF_DEFAULT_IGNORE_RANDOM_MAC,
     CONF_DEFAULT_INTERVALS,
     CONF_DEFAULT_LATEST_CONNECTED,
     CONF_DEFAULT_MODE,
@@ -73,6 +74,7 @@ from .const import (
     CONF_DEFAULT_SPLIT_INTERVALS,
     CONF_DEFAULT_TRACK_DEVICES,
     CONF_EVENT_NODE_CONNECTED,
+    CONF_IGNORE_RANDOM_MAC,
     CONF_INTERVAL,
     CONF_INTERVAL_DEVICES,
     CONF_LATEST_CONNECTED,
@@ -104,6 +106,12 @@ from .const import (
 from .helpers import access_error_details, as_dict, normalize_mac, to_unique_id
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def is_random_mac(mac: str) -> bool:
+    """Return whether a MAC address has the locally administered bit set."""
+
+    return bool(int(mac[1], 16) & 0b10)
 
 
 def _pc_field(value: str | None) -> str:
@@ -362,6 +370,10 @@ class ARDevice:
             CONF_CREATE_DEVICES,
             CONF_DEFAULT_CREATE_DEVICES,
         )
+        self.ignore_random_mac: bool = self._options.get(
+            CONF_IGNORE_RANDOM_MAC,
+            CONF_DEFAULT_IGNORE_RANDOM_MAC,
+        )
         self._pc_rules: dict[str, ParentalControlRule] = {}
         self._pc_rule_lock = asyncio.Lock()
         self._static_dhcp_lock = asyncio.Lock()
@@ -594,6 +606,9 @@ class ARDevice:
             # and are not important anymore
             state = client_info.state
             if state is not ConnectionState.CONNECTED:
+                continue
+
+            if self.ignore_random_mac and is_random_mac(client_mac):
                 continue
 
             # Flag that new client is added

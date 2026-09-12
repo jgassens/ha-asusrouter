@@ -50,6 +50,7 @@
         "title": "Підключені пристрої",
         "data": {
           "track_devices": "Увімкнути трекінг клієнтів",
+          "ignore_random_mac": "Ignore devices with randomised MAC addresses",
           "client_device": "Створювати пристрій, коли я активую device_tracker запис",
           "clients_in_attr": "Зберігати повний список клієнтів у атрибутах до connected devices сенсору",
           "client_filter": "Фільтрувати клієнтів",
@@ -159,6 +160,7 @@
         "title": "Підключені пристрої",
         "data": {
           "track_devices": "Увімкнути трекінг клієнтів",
+          "ignore_random_mac": "Ignore devices with randomised MAC addresses",
           "client_device": "Створювати пристрій, коли я активую device_tracker запис",
           "clients_in_attr": "Зберігати повний список клієнтів у атрибутах до connected devices сенсору",
           "client_filter": "Фільтрувати клієнтів",

@@ -50,6 +50,7 @@
         "title": "Dispositivos ligados",
         "data": {
           "track_devices": "Ativar rastreadores de dispositivos",
+          "ignore_random_mac": "Ignore devices with randomised MAC addresses",
           "client_device": "Criar um dispositivo quando ativar a entidade device_tracker",
           "clients_in_attr": "Guardar a lista de clientes nos atributos do sensor de dispositivos ligados",
           "client_filter": "Filtrar clientes",
@@ -159,6 +160,7 @@
         "title": "Connected devices",
         "data": {
           "track_devices": "Enable device trackers",
+          "ignore_random_mac": "Ignore devices with randomised MAC addresses",
           "client_device": "Create a device when I enable device_tracker entity",
           "clients_in_attr": "Store clients list in attributes of the connected devices sensor",
           "client_filter": "Filter clients",

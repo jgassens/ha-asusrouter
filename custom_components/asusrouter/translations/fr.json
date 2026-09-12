@@ -50,6 +50,7 @@
         "title": "Connected devices",
         "data": {
           "track_devices": "Activer le suivis des périphériques",
+          "ignore_random_mac": "Ignore devices with randomised MAC addresses",
           "client_device": "[NT] Create a device when I enable device_tracker entity",
           "clients_in_attr": "[NT] Store clients list in attributes of the connected devices sensor",
           "client_filter": "[NT] Filter clients",
@@ -159,6 +160,7 @@
         "title": "Connected devices",
         "data": {
           "track_devices": "Activer le suivis des périphériques",
+          "ignore_random_mac": "Ignore devices with randomised MAC addresses",
           "client_device": "[NT] Create a device when I enable device_tracker entity",
           "clients_in_attr": "[NT] Store clients list in attributes of the connected devices sensor",
           "client_filter": "[NT] Filter clients",

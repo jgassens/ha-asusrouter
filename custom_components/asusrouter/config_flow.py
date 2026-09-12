@@ -51,6 +51,7 @@ from .const import (
     CONF_DEFAULT_CREATE_DEVICES,
     CONF_DEFAULT_EVENT,
     CONF_DEFAULT_HIDE_PASSWORDS,
+    CONF_DEFAULT_IGNORE_RANDOM_MAC,
     CONF_DEFAULT_INTERFACES,
     CONF_DEFAULT_INTERVALS,
     CONF_DEFAULT_LATEST_CONNECTED,
@@ -63,6 +64,7 @@ from .const import (
     CONF_DEFAULT_USERNAME,
     CONF_DEFAULT_VERIFY_SSL,
     CONF_HIDE_PASSWORDS,
+    CONF_IGNORE_RANDOM_MAC,
     CONF_INTERFACES,
     CONF_INTERVAL,
     CONF_INTERVAL_DEVICES,
@@ -485,6 +487,12 @@ def _create_form_connected_devices(
             CONF_TRACK_DEVICES,
             default=user_input.get(
                 CONF_TRACK_DEVICES, CONF_DEFAULT_TRACK_DEVICES
+            ),
+        ): cv.boolean,
+        vol.Required(
+            CONF_IGNORE_RANDOM_MAC,
+            default=user_input.get(
+                CONF_IGNORE_RANDOM_MAC, CONF_DEFAULT_IGNORE_RANDOM_MAC
             ),
         ): cv.boolean,
         vol.Required(
