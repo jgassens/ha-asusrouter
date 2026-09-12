@@ -120,7 +120,13 @@ NO_SSL = "no_ssl"
 NUMBER = "number"
 PARENTAL_CONTROL = "parental_control"
 PASSWORD = "password"  # noqa: S105
-HIDDEN_SECRET_ATTRIBUTES = (PASSWORD, "private_key", "psk", "radius_key")
+HIDDEN_SECRET_ATTRIBUTES = (
+    PASSWORD,
+    "private_key",
+    "psk",
+    "psk_state",  # WireGuard server pre-shared key
+    "radius_key",
+)
 PORT_FORWARDING = "port_forwarding"
 PORTS = "ports"
 RAM = "ram"
@@ -676,6 +682,7 @@ TO_REDACT_ATTRS: list[str] = [
     LIST,
     "private_key",
     "psk",
+    "psk_state",
     "radius_key",
     NAME,
     "host_name",
@@ -688,6 +695,11 @@ TO_REDACT_ATTRS: list[str] = [
     "clients",
     "leases",
     "maclist",
+    "maclist_x",
+    "public_ip",
+    "server_ip",
+    "local_ip",
+    "endpoint_address",
 ]
 
 # <-- DIAGNOSTICS

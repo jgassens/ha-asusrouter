@@ -128,6 +128,22 @@ async def test_password_only_option_update_reloads_entry() -> None:
     hass.config_entries.async_reload.assert_awaited_once_with(ENTRY_ID)
 
 
+@pytest.mark.asyncio
+async def test_unchanged_false_option_does_not_reload_entry() -> None:
+    """A stored False option that did not change must not force a reload."""
+
+    router = ARDevice.__new__(ARDevice)
+    router._options = {"create_devices": False}
+    config_entry = Mock(entry_id=ENTRY_ID, options={"create_devices": False})
+    hass = Mock()
+    hass.config_entries.async_reload = AsyncMock()
+    hass.data = {DOMAIN: {ENTRY_ID: {ASUSROUTER: router}}}
+
+    await update_listener(hass, config_entry)
+
+    hass.config_entries.async_reload.assert_not_awaited()
+
+
 def _wrapped_access_error(code: AccessError) -> AsusRouterAccessError:
     """Build the library's message-only wrapper around an access error."""
 

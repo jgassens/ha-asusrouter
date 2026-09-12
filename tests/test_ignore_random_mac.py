@@ -152,3 +152,10 @@ async def test_known_random_mac_still_updates() -> None:
     assert router._clients == {RANDOM_MAC: known}
     assert router._clients_number == 1
     router.fire_event.assert_not_called()
+
+
+@pytest.mark.parametrize("mac", ["", "z", "zz:11:22:33:44:55", "not-a-mac"])
+def test_is_random_mac_tolerates_malformed_values(mac: str) -> None:
+    """A junk MAC from the router must not crash the whole client poll."""
+
+    assert is_random_mac(mac) is False

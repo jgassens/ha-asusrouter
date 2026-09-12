@@ -10,6 +10,7 @@ from homeassistant.exceptions import Unauthorized
 import pytest
 
 from custom_components.asusrouter.const import DOMAIN
+from custom_components.asusrouter.router import ARDevice
 from custom_components.asusrouter.services import (
     SERVICE_DEVICE_INTERNET_ACCESS,
     SERVICE_REFRESH_STATIC_DHCP_LEASES,
@@ -116,3 +117,21 @@ async def test_call_without_user_runs_handler() -> None:
 
     handler_body.assert_awaited_once_with(hass, service_call)
     hass.auth.async_get_user.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_remove_trackers_is_registered_as_admin_only() -> None:
+    """The per-router tracker removal service is admin-only too."""
+
+    router = ARDevice.__new__(ARDevice)
+    router.hass = Mock()
+
+    with patch(
+        "custom_components.asusrouter.router.async_register_admin_service"
+    ) as register:
+        await router._init_services()
+
+    register.assert_called_once_with(
+        router.hass, DOMAIN, "remove_trackers", ANY
+    )
+    router.hass.services.async_register.assert_not_called()

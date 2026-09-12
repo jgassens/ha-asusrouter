@@ -13,6 +13,8 @@ from custom_components.asusrouter.const import (
     DOMAIN,
     HIDDEN_SECRET_ATTRIBUTES,
 )
+from custom_components.asusrouter.dataclass import ARSwitchDescription
+from custom_components.asusrouter.entity import async_setup_ar_entry
 
 
 def test_default_hide_passwords_includes_radius_key() -> None:
@@ -20,6 +22,7 @@ def test_default_hide_passwords_includes_radius_key() -> None:
 
     assert CONF_DEFAULT_HIDE_PASSWORDS is True
     assert "radius_key" in HIDDEN_SECRET_ATTRIBUTES
+    assert "psk_state" in HIDDEN_SECRET_ATTRIBUTES
 
 
 @pytest.mark.asyncio
@@ -81,3 +84,37 @@ async def test_binary_sensor_hide_passwords_option(
         await binary_sensor.async_setup_entry(hass, entry, Mock())
 
     assert setup.await_args.args[-1] == expected_hide
+
+
+@pytest.mark.asyncio
+async def test_hiding_does_not_mutate_shared_descriptions() -> None:
+    """Hiding filters a per-entry copy; the module-level description stays."""
+
+    description = ARSwitchDescription(
+        key="wlan_0",
+        key_group="wlan",
+        name="Wi-Fi",
+        extra_state_attributes={"wpa_psk": "password", "ssid": "ssid"},
+    )
+    router = Mock()
+    router.sensor_coordinator = {
+        "wlan": {"coordinator": Mock(), "wlan": {"wlan_0": True}}
+    }
+    hass = Mock()
+    hass.data = {DOMAIN: {"entry-1": {ASUSROUTER: router}}}
+    entry = Mock(entry_id="entry-1")
+    created = []
+
+    def entity_class(_coordinator, _router, desc):
+        created.append(desc)
+        return Mock()
+
+    await async_setup_ar_entry(
+        hass, entry, Mock(), [description], entity_class, ["password"]
+    )
+
+    assert created[0].extra_state_attributes == {"ssid": "ssid"}
+    assert description.extra_state_attributes == {
+        "wpa_psk": "password",
+        "ssid": "ssid",
+    }

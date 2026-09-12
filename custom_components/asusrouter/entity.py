@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import logging
 from typing import Any
 
@@ -50,23 +51,28 @@ async def async_setup_ar_entry(  # noqa: PLR0913, PLR0917
             try:
                 sensor_type = sensor_description.key_group
 
-                # Make sure extra state attributes are dict
-                if not sensor_description.extra_state_attributes:
-                    sensor_description.extra_state_attributes = {}
-
                 if (
                     sensor_type in sensor_data
                     and sensor_description.key in sensor_data[sensor_type]
                 ):
-                    # Hide protected values
-                    sensor_description.extra_state_attributes = {
-                        key: value
-                        for key, value in sensor_description.extra_state_attributes.items()  # noqa: E501
-                        if value not in hide
-                    }
+                    # Hide protected values on a per-entry copy. The
+                    # descriptions are shared module-level objects, so
+                    # mutating them would leak one entry's hide setting
+                    # into every other entry and survive a reload.
+                    attributes = (
+                        sensor_description.extra_state_attributes or {}
+                    )
+                    description = dataclasses.replace(
+                        sensor_description,
+                        extra_state_attributes={
+                            key: value
+                            for key, value in attributes.items()
+                            if value not in hide
+                        },
+                    )
 
                     entities.append(
-                        sensor_class(coordinator, router, sensor_description)
+                        sensor_class(coordinator, router, description)
                     )
             except Exception as ex:  # noqa: BLE001
                 _LOGGER.warning(

@@ -45,13 +45,20 @@
   fall back to English. Fixed the `cannot_resolve` key mismatch.
 - The library version check runs off the event loop.
 - Removed unused constants and a stale duplicate of the result codes.
-- The five write services (`device_internet_access`, `set_static_dhcp_lease`,
+- The six write services (`device_internet_access`, `set_static_dhcp_lease`,
   `remove_static_dhcp_lease`, `reserve_current_ip`,
-  `refresh_static_dhcp_leases`) are now admin-only. Calls from automations
-  and scripts, which carry no user, still run.
-- "Hide passwords" now defaults to on and also hides RADIUS keys, so Wi-Fi
-  secrets are no longer published as entity attributes unless you turn the
-  option off.
+  `refresh_static_dhcp_leases`, `remove_trackers`) are now admin-only.
+  Calls from automations and scripts, which carry no user, still run.
+- "Hide passwords" now defaults to on and also hides RADIUS keys and the
+  WireGuard server pre-shared key, so Wi-Fi and VPN secrets are no longer
+  published as entity attributes unless you turn the option off. Hiding is
+  applied per entry instead of to the shared entity descriptions, so one
+  entry's setting no longer leaks into another and a reload restores
+  attributes when the option is turned off.
+- An unchanged option stored as off no longer forces a reload on every
+  options-flow save.
+- The initial setup form no longer echoes a rejected password back as a
+  form default.
 - New option "Verify SSL certificate", default off (ASUS routers ship a
   self-signed certificate). When on, both Home Assistant's session and the
   library verify the router's certificate. Existing entries are unchanged.

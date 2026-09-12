@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 import html
 from ipaddress import IPv4Address
 import logging
+import string
 from typing import Any, cast
 
 from asusrouter.error import AsusRouterAccessError, AsusRouterError
@@ -42,6 +43,7 @@ from homeassistant.helpers import device_registry as dr, entity_registry as er
 from homeassistant.helpers.device_registry import DeviceInfo, format_mac
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_time_interval
+from homeassistant.helpers.service import async_register_admin_service
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
@@ -111,6 +113,10 @@ _LOGGER = logging.getLogger(__name__)
 def is_random_mac(mac: str) -> bool:
     """Return whether a MAC address has the locally administered bit set."""
 
+    # Clients are keyed by HA's format_mac, which passes junk through
+    # unchanged, so guard before reading the second hex digit.
+    if len(mac) < 2 or mac[1] not in string.hexdigits:  # noqa: PLR2004
+        return False
     return bool(int(mac[1], 16) & 0b10)
 
 
@@ -1320,8 +1326,10 @@ class ARDevice:
 
             await self.remove_trackers(raw=service.data)
 
-        self.hass.services.async_register(
-            DOMAIN, "remove_trackers", async_service_remove_trackers
+        # Deletes device trackers, so admin-only like the other write
+        # services. Calls without a user (automations) still run.
+        async_register_admin_service(
+            self.hass, DOMAIN, "remove_trackers", async_service_remove_trackers
         )
 
     async def _init_sensor_coordinators(self) -> None:
@@ -1443,11 +1451,13 @@ class ARDevice:
 
         require_reload = False
         for name, new_option in new_options.items():
-            if name in CONF_REQ_RELOAD:
-                old_opt = self._options.get(name)
-                if not old_opt or old_opt != new_option:
-                    require_reload = True
-                    break
+            # A stored False/0 must not force a reload when unchanged.
+            if (
+                name in CONF_REQ_RELOAD
+                and self._options.get(name) != new_option
+            ):
+                require_reload = True
+                break
 
         self._options.update(new_options)
         return require_reload

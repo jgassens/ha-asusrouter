@@ -840,12 +840,16 @@ class ARFlowHandler(ConfigFlow, domain=DOMAIN):
                 # Proceed to the next step
                 return await _async_process_step(self._steps, step_id)
 
-        if not user_input:
-            user_input = self._options.copy()
+        # Never echo a submitted or stored password back as a form default.
+        form_defaults = {
+            key: value
+            for key, value in (user_input or self._options).items()
+            if key != CONF_PASSWORD
+        }
 
         return self.async_show_form(
             step_id=step_id,
-            data_schema=_create_form_credentials(user_input),
+            data_schema=_create_form_credentials(form_defaults),
             errors=errors,
         )
 
