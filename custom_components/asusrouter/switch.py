@@ -24,6 +24,7 @@ from .const import (
     CONF_DEFAULT_HIDE_PASSWORDS,
     CONF_HIDE_PASSWORDS,
     DOMAIN,
+    HIDDEN_SECRET_ATTRIBUTES,
     ICON_INTERNET_ACCESS_OFF,
     ICON_INTERNET_ACCESS_ON,
     STATIC_SWITCHES,
@@ -45,11 +46,13 @@ async def async_setup_entry(
 
     switches = STATIC_SWITCHES.copy()
 
-    hide = []
-    if config_entry.options.get(
-        CONF_HIDE_PASSWORDS, CONF_DEFAULT_HIDE_PASSWORDS
-    ):
-        hide.extend(["password", "private_key", "psk"])
+    hide = (
+        list(HIDDEN_SECRET_ATTRIBUTES)
+        if config_entry.options.get(
+            CONF_HIDE_PASSWORDS, CONF_DEFAULT_HIDE_PASSWORDS
+        )
+        else []
+    )
 
     await async_setup_ar_entry(
         hass, config_entry, async_add_entities, switches, ARSwitch, hide

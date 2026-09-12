@@ -24,10 +24,10 @@ from .const import (
     CONF_HIDE_PASSWORDS,
     DNS,
     DOMAIN,
+    HIDDEN_SECRET_ATTRIBUTES,
     IP,
     MAC,
     MANUFACTURER,
-    PASSWORD,
     ROUTER,
     STATIC_BINARY_SENSORS,
 )
@@ -46,11 +46,13 @@ async def async_setup_entry(
 
     binary_sensors = STATIC_BINARY_SENSORS.copy()
 
-    hide = []
-    if config_entry.options.get(
-        CONF_HIDE_PASSWORDS, CONF_DEFAULT_HIDE_PASSWORDS
-    ):
-        hide.append(PASSWORD)
+    hide = (
+        list(HIDDEN_SECRET_ATTRIBUTES)
+        if config_entry.options.get(
+            CONF_HIDE_PASSWORDS, CONF_DEFAULT_HIDE_PASSWORDS
+        )
+        else []
+    )
 
     await async_setup_ar_entry(
         hass,
