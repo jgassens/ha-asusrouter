@@ -663,6 +663,8 @@ async def test_entity_data_rejects_malformed_capabilities() -> None:
         ("kid>extra", "kidextra"),
         ("kid>extra\n" + "x" * 40, "kidextra" + "x" * 24),
         ("kid&#60extra&#62", "kidextra"),
+        ("Kid &amp; Jerry", "Kid  Jerry"),
+        ("Kid &#x3e; Other", "Kid  Other"),
     ],
 )
 def test_entity_data_sanitizes_discovered_name_and_mac(

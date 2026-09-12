@@ -24,6 +24,7 @@ from homeassistant.const import (
     ATTR_CONNECTIONS,
     ATTR_IDENTIFIERS,
     CONF_DEVICES,
+    CONF_HOST,
     CONF_PASSWORD,
     CONF_PORT,
     CONF_SCAN_INTERVAL,
@@ -657,6 +658,11 @@ TO_REDACT: list[str] = [
     # Entity names embed client names for switches and trackers.
     NAME,
     "original_name",
+    # Network inventory that a shared diagnostics archive need not carry.
+    CONF_HOST,
+    "client_filter_list",
+    "configuration_url",
+    "serial_number",
 ]
 TO_REDACT_DEV: list[str] = [ATTR_CONNECTIONS, ATTR_IDENTIFIERS]
 # Entity name prefixes whose state is redacted in diagnostics. The
@@ -674,6 +680,15 @@ TO_REDACT_ATTRS: list[str] = [
     "radius_key",
     NAME,
     "host_name",
+    "hostname",
+    "address",
+    "ip_address",
+    "gateway",
+    "dns",
+    "login",
+    "clients",
+    "leases",
+    "maclist",
 ]
 
 # <-- DIAGNOSTICS

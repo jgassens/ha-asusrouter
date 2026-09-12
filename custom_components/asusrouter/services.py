@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import html
 from ipaddress import IPv4Address
 import logging
 from typing import Any, cast
@@ -40,7 +41,15 @@ SERVICE_RESERVE_CURRENT_IP = "reserve_current_ip"
 SERVICE_SET_STATIC_DHCP_LEASE = "set_static_dhcp_lease"
 
 PC_NAME_MAX_LENGTH = 32
-PC_NAME_DELIMITERS = ("<", ">", "&#60", "&#62")
+# `<` and `>` delimit the router's rule table; `&` starts the entity
+# encoding the router uses for them, so it is ambiguous on readback.
+PC_NAME_DELIMITERS = ("<", ">", "&")
+
+
+def _unescape_pc_name(value: str) -> str:
+    """Decode entity forms so a delimiter cannot hide behind `&#x3e;`."""
+
+    return html.unescape(value.replace("&#60", "<").replace("&#62", ">"))
 
 
 def _strip(value: Any) -> str:
@@ -82,7 +91,7 @@ def _optional_string(value: Any) -> str:
 def _parental_control_name(value: Any) -> str:
     """Validate a directly supplied parental-control device name."""
 
-    raw_name = "" if value is None else str(value)
+    raw_name = _unescape_pc_name("" if value is None else str(value))
     name = raw_name.strip()
     if len(name) > PC_NAME_MAX_LENGTH:
         raise ServiceValidationError(
@@ -101,7 +110,7 @@ def _sanitize_parental_control_name(value: Any, entity_id: str) -> str:
     """Sanitize a router-discovered parental-control device name."""
 
     name = "" if value is None else str(value)
-    sanitized = name.strip()
+    sanitized = _unescape_pc_name(name).strip()
     for delimiter in PC_NAME_DELIMITERS:
         sanitized = sanitized.replace(delimiter, "")
     sanitized = "".join(

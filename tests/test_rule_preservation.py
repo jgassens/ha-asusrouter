@@ -262,3 +262,63 @@ async def test_confirmation_accepts_html_escaped_name_readback() -> None:
         state="block", devices=[{"mac": MAC}]
     )
     assert router.pc_rules[MAC].type == PCRuleType.BLOCK
+
+
+OTHER = "00:11:22:33:44:55"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("state", ["remove", "block"])
+async def test_confirmation_rejects_lost_unrelated_rule(state: str) -> None:
+    """Success on the target cannot hide that another rule vanished."""
+
+    target = ParentalControlRule(mac=MAC, name="Target", type=PCRuleType.BLOCK)
+    other = ParentalControlRule(mac=OTHER, name="Other", type=PCRuleType.TIME)
+    bridge = _bridge(rules={MAC: target, OTHER: other})
+    router = _router(bridge)
+
+    async def write(**kwargs: dict) -> ServiceResult:
+        rules = _read_written_rules(kwargs["arguments"])
+        rules.pop(OTHER, None)  # router "lost" the unrelated row
+        bridge.api.async_get_data.return_value = {"rules": rules}
+        return _result(True, 0)
+
+    bridge.api.async_run_service_result.side_effect = write
+    with (
+        patch(
+            "custom_components.asusrouter.router.asyncio.sleep",
+            new_callable=AsyncMock,
+        ),
+        pytest.raises(HomeAssistantError, match="could not be confirmed"),
+    ):
+        await router.async_set_internet_access(
+            state=state, devices=[{"mac": MAC}]
+        )
+
+
+@pytest.mark.asyncio
+async def test_confirmation_rejects_retyped_unrelated_rule() -> None:
+    """An unrelated row that came back with another type fails."""
+
+    target = ParentalControlRule(mac=MAC, name="Target", type=PCRuleType.BLOCK)
+    other = ParentalControlRule(mac=OTHER, name="Other", type=PCRuleType.TIME)
+    bridge = _bridge(rules={MAC: target, OTHER: other})
+    router = _router(bridge)
+
+    async def write(**kwargs: dict) -> ServiceResult:
+        rules = _read_written_rules(kwargs["arguments"])
+        rules[OTHER] = replace(rules[OTHER], type=PCRuleType.DISABLE)
+        bridge.api.async_get_data.return_value = {"rules": rules}
+        return _result(True, 0)
+
+    bridge.api.async_run_service_result.side_effect = write
+    with (
+        patch(
+            "custom_components.asusrouter.router.asyncio.sleep",
+            new_callable=AsyncMock,
+        ),
+        pytest.raises(HomeAssistantError, match="could not be confirmed"),
+    ):
+        await router.async_set_internet_access(
+            state="allow", devices=[{"mac": MAC}]
+        )

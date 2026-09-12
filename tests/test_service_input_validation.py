@@ -46,6 +46,11 @@ def test_internet_access_schema_normalizes_mac(mac: str) -> None:
         "kid&#62extra",
         "kid\nextra",
         "x" * 33,
+        # entity forms that decode to a delimiter, and bare `&`
+        "Kid &#x3e; Other",
+        "&gt;",
+        "Kid &amp; Co",
+        "a&b",
     ],
 )
 def test_internet_access_schema_rejects_unsafe_direct_name(

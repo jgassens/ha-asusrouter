@@ -83,6 +83,10 @@ async def test_options_credentials_rejection_preserves_options() -> None:
     assert result["step_id"] == "credentials"
     assert result["errors"] == {BASE: RESULT_WRONG_CREDENTIALS}
     assert flow._options == original_options
+    password_key = next(
+        key for key in result["data_schema"].schema if key == CONF_PASSWORD
+    )
+    assert password_key.default() == ""
     check_connection.assert_awaited_once_with(
         flow.hass, flow._configs, candidate_options
     )

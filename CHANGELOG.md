@@ -19,7 +19,14 @@
   that started before a removal can no longer recreate the removed switch.
 - Confirmation compares names after HTML-unescaping, matching how
   schedules were already compared, so a router that echoes `&` as `&amp;`
-  no longer fails a successful write.
+  no longer fails a successful write. Confirmation also checks that every
+  other row in the written table came back with its type, so a router that
+  reports success but drops an unrelated rule no longer passes.
+- Device names are decoded (`&#x3e;`, `&gt;`, …) before the delimiter check,
+  and `&` itself is rejected in direct names and stripped from tracker
+  names, since the router uses it to escape delimiters on readback.
+- The options credentials form no longer sends the stored password back to
+  the browser as a default.
 - A service call spanning several routers now finishes every router and
   reports which succeeded and which failed instead of stopping at the first.
 - Wrong credentials, a locked-out login, "another admin is logged in" and a
@@ -30,8 +37,10 @@
 - Entity and button write failures raise a Home Assistant error instead of
   being logged and swallowed.
 - Diagnostics redact RADIUS keys, MAC addresses, client names (tracked
-  devices, tracker attributes and entity names) and addresses, and the WAN
-  IP state for every WAN IP sensor.
+  devices, tracker attributes and entity names), the router host, serial
+  number and configuration URL, IP addresses, gateways, DNS servers,
+  hostnames, VPN logins and client lists, static-lease lists, MAC filter
+  lists, and the WAN IP state for every WAN IP sensor.
 - All twelve translation files carry the full key set; untranslated keys
   fall back to English. Fixed the `cannot_resolve` key mismatch.
 - The library version check runs off the event loop.

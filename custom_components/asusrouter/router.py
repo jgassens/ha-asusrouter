@@ -853,6 +853,18 @@ class ARDevice:
                 f"The router returned unexpected parental-control data: {ex}"
             ) from ex
 
+        # Every row that was written must have come back with its type.
+        # A router that answered "success" and then dropped an unrelated
+        # rule must not pass confirmation.
+        retained_ok = all(
+            (rule := rules_by_mac.get(mac)) is not None
+            and rule.type == expected.type
+            for mac, expected in expected_rules.items()
+            if mac not in target_macs
+        )
+        if not retained_ok:
+            return False
+
         if state == "remove":
             return target_macs.isdisjoint(rules_by_mac)
 

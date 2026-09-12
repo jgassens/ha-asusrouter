@@ -29,7 +29,9 @@ async def test_diagnostics_redact_router_and_client_secrets() -> None:
     """Diagnostics redact config, entity, and tracked-client secrets."""
 
     entry = Mock(entry_id="entry-id")
-    entry.as_dict.return_value = {"data": {"radius_key": SENTINEL_RADIUS_KEY}}
+    entry.as_dict.return_value = {
+        "data": {"radius_key": SENTINEL_RADIUS_KEY, "host": SENTINEL_IP}
+    }
 
     tracked_device = Mock(name=SENTINEL_NAME, ip_address=SENTINEL_IP)
     tracked_device.extra_state_attributes = {
@@ -82,6 +84,9 @@ async def test_diagnostics_redact_router_and_client_secrets() -> None:
             "radius_key": SENTINEL_RADIUS_KEY,
             "name": SENTINEL_NAME,
             "host_name": SENTINEL_NAME,
+            "ip_address": SENTINEL_IP,
+            "gateway": SENTINEL_IP,
+            "leases": [{"mac": SENTINEL_MAC}],
             "safe": "visible",
         },
     }
@@ -122,6 +127,7 @@ async def test_diagnostics_redact_router_and_client_secrets() -> None:
         diagnostics = await async_get_config_entry_diagnostics(hass, entry)
 
     assert diagnostics["entry"]["data"]["radius_key"] == REDACTED
+    assert diagnostics["entry"]["data"]["host"] == REDACTED
     wan_state = diagnostics["device"]["entities"][wan_entry.entity_id]["state"]
     assert wan_state["state"] == REDACTED
     assert (
@@ -135,6 +141,9 @@ async def test_diagnostics_redact_router_and_client_secrets() -> None:
         "radius_key": REDACTED,
         "name": REDACTED,
         "host_name": REDACTED,
+        "ip_address": REDACTED,
+        "gateway": REDACTED,
+        "leases": REDACTED,
         "safe": "visible",
     }
     assert (

@@ -1091,12 +1091,16 @@ class AROptionsFlowHandler(OptionsFlow):
             else:
                 return await self.async_step_options()
 
-        if not user_input:
-            user_input = self._options.copy()
+        # Never send a stored or rejected password back as a form default.
+        form_defaults = {
+            key: value
+            for key, value in (user_input or self._options).items()
+            if key != CONF_PASSWORD
+        }
 
         return self.async_show_form(
             step_id=step_id,
-            data_schema=_create_form_credentials(user_input, self._mode),
+            data_schema=_create_form_credentials(form_defaults, self._mode),
             errors=errors,
         )
 
