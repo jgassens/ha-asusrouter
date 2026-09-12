@@ -31,6 +31,7 @@ from homeassistant.const import (
     CONF_SSL,
     CONF_UNIQUE_ID,
     CONF_USERNAME,
+    CONF_VERIFY_SSL,
     PERCENTAGE,
     EntityCategory,
     Platform,
@@ -439,7 +440,6 @@ DEFAULT_SENSORS: dict[str, list[str]] = {CPU: [TOTAL]}
 
 # Keys
 CONF_CACHE_TIME = "cache_time"
-CONF_CERT_PATH = "cert_path"
 CONF_CLIENT_DEVICE = "client_device"
 CONF_CLIENT_FILTER = "client_filter"
 CONF_CLIENT_FILTER_LIST = "client_filter_list"
@@ -507,6 +507,7 @@ CONF_DEFAULT_SPLIT_INTERVALS = False
 CONF_DEFAULT_SSL = True
 CONF_DEFAULT_TRACK_DEVICES = True
 CONF_DEFAULT_USERNAME = "admin"
+CONF_DEFAULT_VERIFY_SSL = False
 
 # Labels
 CONF_LABELS_CLIENT_FILTER = {
@@ -536,7 +537,6 @@ CONF_LABELS_MODE = {
 # Options that require restarting the integration
 CONF_REQ_RELOAD = [
     CONF_CACHE_TIME,
-    CONF_CERT_PATH,
     CONF_CLIENT_DEVICE,
     CONF_CLIENT_FILTER,
     CONF_CLIENT_FILTER_LIST,
@@ -563,6 +563,7 @@ CONF_REQ_RELOAD = [
     CONF_SCAN_INTERVAL,
     CONF_TRACK_DEVICES,
     CONF_USERNAME,
+    CONF_VERIFY_SSL,
 ]
 CONF_REQ_RELOAD.extend(CONF_INTERVALS)
 
@@ -575,7 +576,6 @@ CONF_VALUES_MODE = [
 
 # Defaults
 DEFAULT_DEVICE_NAME = "Unknown device"
-DEFAULT_VERIFY_SSL = True
 
 # <-- CONFIGURATION
 

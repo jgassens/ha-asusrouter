@@ -16,7 +16,8 @@
           "username": "Usuario",
           "password": "Contraseña",
           "port": "Puerto (0 para usar el valor por defecto)",
-          "ssl": "Usar conexión SSL"
+          "ssl": "Usar conexión SSL",
+          "verify_ssl": "Verify SSL certificate (leave off for the router's self-signed certificate)"
         }
       },
       "reauth_confirm": {
@@ -143,7 +144,8 @@
           "username": "Usuario",
           "password": "Contraseña",
           "port": "Puerto (0 para usar el valor por defecto)",
-          "ssl": "Usar conexión SSL"
+          "ssl": "Usar conexión SSL",
+          "verify_ssl": "Verify SSL certificate (leave off for the router's self-signed certificate)"
         }
       },
       "operation": {

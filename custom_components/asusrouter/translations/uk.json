@@ -16,7 +16,8 @@
           "username": "Ім'я користувача",
           "password": "Пароль",
           "port": "Порт (0 щоб використати стандартне значення)",
-          "ssl": "Використовувати SSL"
+          "ssl": "Використовувати SSL",
+          "verify_ssl": "Verify SSL certificate (leave off for the router's self-signed certificate)"
         }
       },
       "reauth_confirm": {
@@ -143,7 +144,8 @@
           "username": "Ім'я користувача",
           "password": "Пароль",
           "port": "Порт (0 щоб використати стандартне значення)",
-          "ssl": "Використовувати SSL"
+          "ssl": "Використовувати SSL",
+          "verify_ssl": "Verify SSL certificate (leave off for the router's self-signed certificate)"
         }
       },
       "operation": {

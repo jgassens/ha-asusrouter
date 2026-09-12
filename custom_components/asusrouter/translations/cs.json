@@ -16,7 +16,8 @@
           "username": "Uživatelské jméno",
           "password": "Heslo",
           "port": "Port (0 pro použití výchozí hodnoty)",
-          "ssl": "Použít připojení SSL"
+          "ssl": "Použít připojení SSL",
+          "verify_ssl": "Verify SSL certificate (leave off for the router's self-signed certificate)"
         }
       },
       "reauth_confirm": {
@@ -143,7 +144,8 @@
           "username": "Uživatelské jméno",
           "password": "Heslo",
           "port": "Port (0 pro použití výchozí hodnoty)",
-          "ssl": "Použít připojení SSL"
+          "ssl": "Použít připojení SSL",
+          "verify_ssl": "Verify SSL certificate (leave off for the router's self-signed certificate)"
         }
       },
       "operation": {

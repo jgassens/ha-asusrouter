@@ -10,6 +10,7 @@ from typing import Any, cast
 import aiohttp
 from asusrouter import AsusRouter
 from asusrouter.config import ARConfig, ARConfigKey as ARConfKey
+from asusrouter.connection_config import ARConnectionConfigKey as ARCCKey
 from asusrouter.const import DEFAULT_PORT_HTTP, DEFAULT_PORT_HTTPS
 from asusrouter.error import AsusRouterError
 from asusrouter.modules.aimesh import AiMeshDevice
@@ -38,6 +39,7 @@ from homeassistant.const import (
     CONF_PORT,
     CONF_SSL,
     CONF_USERNAME,
+    CONF_VERIFY_SSL,
 )
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ServiceValidationError
@@ -53,6 +55,7 @@ from .const import (
     CONF_DEFAULT_CACHE_TIME,
     CONF_DEFAULT_MODE,
     CONF_DEFAULT_PORT,
+    CONF_DEFAULT_VERIFY_SSL,
     CONF_MODE,
     CPU,
     DDNS,
@@ -108,12 +111,14 @@ class ARBridge:
         if options:
             self._configs.update(options)
 
+        verify_ssl = self._configs.get(
+            CONF_VERIFY_SSL, CONF_DEFAULT_VERIFY_SSL
+        )
+
         # Get session from HA
-        # By default, don't verify SSL <- this is a temp solution
-        # which should be done properly in the future
         session = async_create_clientsession(
             hass,
-            verify_ssl=False,
+            verify_ssl=verify_ssl,
             cookie_jar=get_cookie_jar(),
         )
 
@@ -170,6 +175,11 @@ class ARBridge:
             cache_time=configs.get(CONF_CACHE_TIME, CONF_DEFAULT_CACHE_TIME),
             session=session,
             config=config,
+            connection_config={
+                ARCCKey.VERIFY_SSL: configs.get(
+                    CONF_VERIFY_SSL, CONF_DEFAULT_VERIFY_SSL
+                )
+            },
         )
 
     def _get_api_config(self) -> dict[ARConfKey, Any]:

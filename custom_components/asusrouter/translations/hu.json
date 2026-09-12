@@ -16,7 +16,8 @@
           "username": "Felhasználónév",
           "password": "Jelszó",
           "port": "Port (0 az alapértelmezett érték használatához)",
-          "ssl": "SSL kapcsolat használata"
+          "ssl": "SSL kapcsolat használata",
+          "verify_ssl": "Verify SSL certificate (leave off for the router's self-signed certificate)"
         }
       },
       "reauth_confirm": {
@@ -143,7 +144,8 @@
           "username": "Felhasználónév",
           "password": "Jelszó",
           "port": "Port (0 az alapértelmezett érték használatához)",
-          "ssl": "SSL kapcsolat használata"
+          "ssl": "SSL kapcsolat használata",
+          "verify_ssl": "Verify SSL certificate (leave off for the router's self-signed certificate)"
         }
       },
       "operation": {

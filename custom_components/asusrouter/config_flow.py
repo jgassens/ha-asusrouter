@@ -23,6 +23,7 @@ from homeassistant.const import (
     CONF_SCAN_INTERVAL,
     CONF_SSL,
     CONF_USERNAME,
+    CONF_VERIFY_SSL,
 )
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.data_entry_flow import FlowResult
@@ -60,6 +61,7 @@ from .const import (
     CONF_DEFAULT_SSL,
     CONF_DEFAULT_TRACK_DEVICES,
     CONF_DEFAULT_USERNAME,
+    CONF_DEFAULT_VERIFY_SSL,
     CONF_HIDE_PASSWORDS,
     CONF_INTERFACES,
     CONF_INTERVAL,
@@ -407,6 +409,10 @@ def _create_form_credentials(
         ): cv.positive_int,
         vol.Optional(
             CONF_SSL, default=user_input.get(CONF_SSL, CONF_DEFAULT_SSL)
+        ): cv.boolean,
+        vol.Optional(
+            CONF_VERIFY_SSL,
+            default=user_input.get(CONF_VERIFY_SSL, CONF_DEFAULT_VERIFY_SSL),
         ): cv.boolean,
     }
 
@@ -1076,6 +1082,8 @@ class AROptionsFlowHandler(OptionsFlow):
                 or user_input[CONF_PASSWORD] != self._options[CONF_PASSWORD]
                 or user_input[CONF_PORT] != self._options[CONF_PORT]
                 or user_input[CONF_SSL] != self._options[CONF_SSL]
+                or user_input.get(CONF_VERIFY_SSL, CONF_DEFAULT_VERIFY_SSL)
+                != self._options.get(CONF_VERIFY_SSL, CONF_DEFAULT_VERIFY_SSL)
             ):
                 candidate_options = self._options.copy()
                 candidate_options.update(user_input)

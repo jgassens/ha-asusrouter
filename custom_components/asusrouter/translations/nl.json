@@ -16,7 +16,8 @@
           "username": "Gebruikersnaam",
           "password": "Wachtwoord",
           "port": "Poort (0 voor standaard waarde)",
-          "ssl": "Gebruik SSL verbinding"
+          "ssl": "Gebruik SSL verbinding",
+          "verify_ssl": "Verify SSL certificate (leave off for the router's self-signed certificate)"
         }
       },
       "reauth_confirm": {
@@ -143,7 +144,8 @@
           "username": "Gebruikersnaam",
           "password": "Wachtwoord",
           "port": "Poort (0 voor standaard waarde)",
-          "ssl": "Gebruik SSL verbinding"
+          "ssl": "Gebruik SSL verbinding",
+          "verify_ssl": "Verify SSL certificate (leave off for the router's self-signed certificate)"
         }
       },
       "operation": {
