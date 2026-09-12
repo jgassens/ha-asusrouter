@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from functools import partial
 import logging
 from unittest.mock import ANY, AsyncMock, Mock, call, patch
 
@@ -280,11 +281,17 @@ def _service_hass(router: Mock) -> tuple[Mock, dict[str, object]]:
     hass = Mock()
     hass.data = {DOMAIN: {"router-1": {ASUSROUTER: router}}}
     hass.services.has_service.return_value = False
-    hass.services.async_register.side_effect = (
-        lambda _domain, service, handler, **_kwargs: handlers.__setitem__(
-            service, handler
-        )
-    )
+
+    def register(_domain: str, service: str, handler: object, *_a, **_kw):
+        # Services are registered through HA's admin wrapper, a partial of
+        # (hass, HassJob(service_func)). These tests exercise the service
+        # bodies, so capture the wrapped function; the wrapper itself is
+        # covered by tests/test_service_authorization.py.
+        if isinstance(handler, partial):
+            handler = handler.args[1].target
+        handlers[service] = handler
+
+    hass.services.async_register.side_effect = register
     return hass, handlers
 
 

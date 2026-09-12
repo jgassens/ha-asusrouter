@@ -5,7 +5,6 @@ from __future__ import annotations
 import html
 from ipaddress import IPv4Address
 import logging
-from types import SimpleNamespace
 from typing import Any, cast
 import unicodedata
 
@@ -478,61 +477,6 @@ async def _async_device_internet_access(
         ) from failed[0][1]
 
 
-def _register_admin_services(
-    hass: HomeAssistant,
-    services: tuple[tuple[str, Any, Any], ...],
-) -> None:
-    """Register admin services while supporting lightweight test registries."""
-
-    service_registry = hass.services
-    if not isinstance(hass, HomeAssistant):
-        service_handlers = {
-            service: service_func
-            for service, service_func, _schema in services
-        }
-
-        def async_register(
-            domain: str,
-            service: str,
-            _admin_handler: Any,
-            schema: Any,
-            supports_response: Any,
-            **kwargs: Any,
-        ) -> None:
-            """Adapt the HA helper call for lightweight test registries."""
-
-            async def service_handler(call: Any) -> None:
-                """Preserve authorization for genuine service calls."""
-
-                if isinstance(call, ServiceCall):
-                    await _admin_handler(call)
-                    return
-                await service_handlers[service](call)
-
-            service_registry.async_register(
-                domain,
-                service,
-                service_handler,
-                schema=schema,
-                supports_response=supports_response,
-                **kwargs,
-            )
-
-        hass.services = SimpleNamespace(async_register=async_register)
-
-    try:
-        for service, service_func, schema in services:
-            async_register_admin_service(
-                hass,
-                DOMAIN,
-                service,
-                service_func,
-                schema=schema,
-            )
-    finally:
-        hass.services = service_registry
-
-
 async def async_setup_services(hass: HomeAssistant) -> None:
     """Set up AsusRouter service actions."""
 
@@ -582,34 +526,35 @@ async def async_setup_services(hass: HomeAssistant) -> None:
         return
 
     # These actions change other clients' network access or addressing, so
-    # only administrators may invoke them from a user context.
-    _register_admin_services(
-        hass,
+    # only administrators may invoke them from a user context. Calls with
+    # no user (automations, scripts) still run.
+    for service, service_func, schema in (
         (
-            (
-                SERVICE_DEVICE_INTERNET_ACCESS,
-                async_device_internet_access,
-                DEVICE_INTERNET_ACCESS_SCHEMA,
-            ),
-            (
-                SERVICE_SET_STATIC_DHCP_LEASE,
-                async_set_static_dhcp_lease,
-                SET_STATIC_DHCP_SCHEMA,
-            ),
-            (
-                SERVICE_REMOVE_STATIC_DHCP_LEASE,
-                async_remove_static_dhcp_lease,
-                REMOVE_STATIC_DHCP_SCHEMA,
-            ),
-            (
-                SERVICE_RESERVE_CURRENT_IP,
-                async_reserve_current_ip,
-                RESERVE_CURRENT_IP_SCHEMA,
-            ),
-            (
-                SERVICE_REFRESH_STATIC_DHCP_LEASES,
-                async_refresh_static_dhcp_leases,
-                REFRESH_STATIC_DHCP_SCHEMA,
-            ),
+            SERVICE_DEVICE_INTERNET_ACCESS,
+            async_device_internet_access,
+            DEVICE_INTERNET_ACCESS_SCHEMA,
         ),
-    )
+        (
+            SERVICE_SET_STATIC_DHCP_LEASE,
+            async_set_static_dhcp_lease,
+            SET_STATIC_DHCP_SCHEMA,
+        ),
+        (
+            SERVICE_REMOVE_STATIC_DHCP_LEASE,
+            async_remove_static_dhcp_lease,
+            REMOVE_STATIC_DHCP_SCHEMA,
+        ),
+        (
+            SERVICE_RESERVE_CURRENT_IP,
+            async_reserve_current_ip,
+            RESERVE_CURRENT_IP_SCHEMA,
+        ),
+        (
+            SERVICE_REFRESH_STATIC_DHCP_LEASES,
+            async_refresh_static_dhcp_leases,
+            REFRESH_STATIC_DHCP_SCHEMA,
+        ),
+    ):
+        async_register_admin_service(
+            hass, DOMAIN, service, service_func, schema=schema
+        )
