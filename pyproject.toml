@@ -20,7 +20,7 @@ classifiers     = [
 ]
 dependencies    = [
     # Pin the companion library's stable API to the exact tested commit.
-    "asusrouter@git+https://github.com/jgassens/asusrouter.git@d924ea170c51919ce2ebdc4f34f9c635b5392dbc",
+    "asusrouter@git+https://github.com/jgassens/asusrouter.git@9c18ca3529db573d92c1406d9b7d61408b536f5c",
     "homeassistant==2026.7.4",
 ]
 

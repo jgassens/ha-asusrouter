@@ -288,7 +288,7 @@ wheels = [
 [[package]]
 name = "asusrouter"
 version = "2.0.0+jgassens.3"
-source = { git = "https://github.com/jgassens/asusrouter.git?rev=d924ea170c51919ce2ebdc4f34f9c635b5392dbc#d924ea170c51919ce2ebdc4f34f9c635b5392dbc" }
+source = { git = "https://github.com/jgassens/asusrouter.git?rev=9c18ca3529db573d92c1406d9b7d61408b536f5c#9c18ca3529db573d92c1406d9b7d61408b536f5c" }
 dependencies = [
     { name = "aiohttp" },
     { name = "urllib3" },
@@ -956,7 +956,7 @@ test = [
 
 [package.metadata]
 requires-dist = [
-    { name = "asusrouter", git = "https://github.com/jgassens/asusrouter.git?rev=d924ea170c51919ce2ebdc4f34f9c635b5392dbc" },
+    { name = "asusrouter", git = "https://github.com/jgassens/asusrouter.git?rev=9c18ca3529db573d92c1406d9b7d61408b536f5c" },
     { name = "homeassistant", specifier = "==2026.7.4" },
 ]
 
