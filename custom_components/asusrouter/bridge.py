@@ -471,11 +471,6 @@ class ARBridge:
             return cast(
                 list[Any], await self.api.async_get_static_dhcp_leases()
             )
-        except AttributeError as ex:
-            raise UpdateFailed(
-                "Installed asusrouter package does not support "
-                "static DHCP leases"
-            ) from ex
         except AsusRouterError as ex:
             raise UpdateFailed(ex) from ex
 
@@ -498,11 +493,6 @@ class ARBridge:
                     dns=dns,
                 ),
             )
-        except AttributeError as ex:
-            raise UpdateFailed(
-                "Installed asusrouter package does not support "
-                "static DHCP leases"
-            ) from ex
         except AsusRouterError as ex:
             raise UpdateFailed(ex) from ex
 
@@ -521,11 +511,6 @@ class ARBridge:
                     apply=apply,
                 ),
             )
-        except AttributeError as ex:
-            raise UpdateFailed(
-                "Installed asusrouter package does not support "
-                "static DHCP leases"
-            ) from ex
         except AsusRouterError as ex:
             raise UpdateFailed(ex) from ex
 

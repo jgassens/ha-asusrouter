@@ -40,9 +40,6 @@ class ARBinaryDescription(AREntityDescription, BinarySensorEntityDescription):
 class ARSensorDescription(AREntityDescription, SensorEntityDescription):
     """Describe AsusRouter sensor."""
 
-    factor: int | None = None
-    precision: int = 3
-
 
 @dataclass
 class ARBinarySensorDescription(
